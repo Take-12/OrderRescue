@@ -1,0 +1,15 @@
+# Archivos grandes que NO deben subirse a GitHub
+*.db
+*.pkl
+OrderDetails.csv
+Orders.csv
+Resultados.csv
+historial_optimizacion.csv
+
+# Archivos de Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# PDFs
+*.pdf
