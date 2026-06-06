@@ -1,6 +1,5 @@
 # Archivos grandes que NO deben subirse a GitHub
 *.db
-*.pkl
 OrderDetails.csv
 Orders.csv
 Resultados.csv

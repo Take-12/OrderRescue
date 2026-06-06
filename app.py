@@ -9,8 +9,32 @@ import json
 from gtts import gTTS
 import streamlit.components.v1 as components
 
+# ─────────────────────────────────────────────────────────────
+# AUTO-DESCARGA DE ARCHIVOS PESADOS DESDE GOOGLE DRIVE
+# ─────────────────────────────────────────────────────────────
+def descargar_si_no_existe(ruta_local, gdrive_file_id, nombre):
+    """Descarga un archivo de Google Drive si no existe localmente."""
+    if not os.path.exists(ruta_local):
+        try:
+            import gdown
+            url = f"https://drive.google.com/uc?id={gdrive_file_id}"
+            with st.spinner(f"⏬ Descargando {nombre} por primera vez... (puede tardar unos minutos)"):
+                gdown.download(url, ruta_local, quiet=False)
+            st.success(f"✅ {nombre} descargado correctamente.")
+        except Exception as e:
+            st.error(f"❌ No se pudo descargar {nombre}: {e}")
+            st.stop()
+
+# ID del archivo en Google Drive (se configura después de subir el archivo)
+DB_GDRIVE_ID = os.environ.get("DB_GDRIVE_ID", "TU_ID_AQUI")
+DB_PATH = "order_rescue.db"
+
+if DB_GDRIVE_ID != "TU_ID_AQUI":
+    descargar_si_no_existe(DB_PATH, DB_GDRIVE_ID, "Base de datos")
+
 # Importamos la función de optimización bayesiana
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
+
 
 # Configuración de página
 st.set_page_config(
