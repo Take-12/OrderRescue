@@ -25,12 +25,12 @@ def descargar_si_no_existe(ruta_local, gdrive_file_id, nombre):
             st.error(f"❌ No se pudo descargar {nombre}: {e}")
             st.stop()
 
-# ID del archivo en Google Drive (se configura después de subir el archivo)
-DB_GDRIVE_ID = os.environ.get("DB_GDRIVE_ID", "TU_ID_AQUI")
+# ID del archivo en Google Drive
+DB_GDRIVE_ID = "1RlpSLZkkxkZljczo3GyCvvGxmS90-cCw"
 DB_PATH = "order_rescue.db"
 
-if DB_GDRIVE_ID != "TU_ID_AQUI":
-    descargar_si_no_existe(DB_PATH, DB_GDRIVE_ID, "Base de datos")
+descargar_si_no_existe(DB_PATH, DB_GDRIVE_ID, "Base de datos")
+
 
 # Importamos la función de optimización bayesiana
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
