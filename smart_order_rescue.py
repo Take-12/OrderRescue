@@ -19,6 +19,108 @@ MAP_CLIENTE_ID_REAL = {
 def get_db_connection():
     return sqlite3.connect("order_rescue.db")
 
+def verificar_e_inicializar_tablas():
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        # Verificar si la tabla 'cedis' existe
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cedis'")
+        exists_cedis = c.fetchone()
+        
+        # Verificar si la tabla 'productos' existe
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='productos'")
+        exists_productos = c.fetchone()
+        
+        # Verificar si la tabla 'clientes' existe
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clientes'")
+        exists_clientes = c.fetchone()
+        
+        # Verificar si la tabla 'alertas' existe
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alertas'")
+        exists_alertas = c.fetchone()
+        
+        if not (exists_cedis and exists_productos and exists_clientes and exists_alertas):
+            # Crear index para orders(id_pedido) si falta
+            c.execute("CREATE INDEX IF NOT EXISTS idx_orders_id_pedido ON orders(id_pedido);")
+            
+            # 1. Tabla: productos
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS productos (
+                    sku TEXT PRIMARY KEY,
+                    nombre TEXT
+                );
+            """)
+            c.execute("""
+                INSERT OR IGNORE INTO productos (sku, nombre)
+                SELECT DISTINCT sku_solicitado, nombre_sku_solicitado
+                FROM order_details
+                WHERE sku_solicitado IS NOT NULL AND nombre_sku_solicitado IS NOT NULL;
+            """)
+            
+            # 2. Tabla: clientes
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS clientes (
+                    customer_id TEXT PRIMARY KEY,
+                    pais TEXT,
+                    business_unit TEXT
+                );
+            """)
+            c.execute("""
+                INSERT OR IGNORE INTO clientes (customer_id, pais, business_unit)
+                SELECT DISTINCT customer_id, pais, business_unit
+                FROM orders
+                WHERE customer_id IS NOT NULL;
+            """)
+            
+            # 3. Tabla: cedis
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS cedis (
+                    cedi_id TEXT PRIMARY KEY,
+                    pais TEXT
+                );
+            """)
+            c.execute("""
+                INSERT OR IGNORE INTO cedis (cedi_id, pais)
+                SELECT DISTINCT cedis, pais
+                FROM orders
+                WHERE cedis IS NOT NULL;
+            """)
+            
+            # 4. Tabla: alertas
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS alertas (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fecha TEXT,
+                    cliente TEXT,
+                    cedi TEXT,
+                    producto TEXT,
+                    probabilidad REAL,
+                    riesgo TEXT,
+                    estado TEXT
+                );
+            """)
+            
+            # Alertas de prueba si alertas está vacía
+            c.execute("SELECT count(*) FROM alertas")
+            if c.fetchone()[0] == 0:
+                alertas_prueba = [
+                    ("2026-06-07 08:00:00", "Restaurante Centro", "3804", "Coca - Cola", 92.5, "Alto", "Activa"),
+                    ("2026-06-07 08:15:00", "Abarrotes La Esquina", "3012", "Coca - Cola", 45.0, "Medio", "Activa"),
+                    ("2026-06-07 08:30:00", "Gimnasio FitZone", "3803", "Valle Frut Citrus Punch", 15.2, "Bajo", "Resuelta"),
+                    ("2026-06-07 08:45:00", "Supermercado Smart", "3003", "Topo Chico Agua Mineral", 78.4, "Alto", "Activa"),
+                    ("2026-06-07 09:00:00", "Taquería El Pastor", "3804", "Fresca Toronja", 62.1, "Medio", "Activa")
+                ]
+                c.executemany("""
+                    INSERT INTO alertas (fecha, cliente, cedi, producto, probabilidad, riesgo, estado)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, alertas_prueba)
+                
+            conn.commit()
+    except Exception as e:
+        print(f"Error inicializando tablas adicionales: {e}")
+    finally:
+        conn.close()
+
 def predecir_demanda_prophet(producto, cedi):
     conn = get_db_connection()
     query = """
@@ -102,6 +204,7 @@ def predecir_demanda_prophet(producto, cedi):
     return tomorrow, next_7_days, trend, peak_day, dates, list(predictions)
 
 def render_smart_order_rescue(cedi_actual):
+    verificar_e_inicializar_tablas()
     st.markdown("""
     <div style='background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #e41e26;'>
         <h2 style='margin:0; color: #e41e26;'>🚀 Smart Order Rescue - Panel de Ventas y Relación Comercial</h2>
