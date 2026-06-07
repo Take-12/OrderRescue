@@ -530,16 +530,20 @@ if rol == "🛒 Comprador B2B (Cliente)":
                 # Caso crítico: cercano o excede
                 if tipo_caso == "cercano":
                     st.markdown(f"""
-                    <div style='background-color: #fff3e0; padding: 12px; border-radius: 8px; border-left: 5px solid #ff9800; margin-bottom: 12px; color: #e65100; font-size: 13px; line-height: 1.4;'>
-                        <b>⚠️ Aviso de Compromiso de Stock (Proximidad del 5%)</b><br>
-                        Tu pedido de <b>{b2b_cantidad} cajas</b> consume casi todo el inventario disponible de {b2b_producto} (<b>{stock_actual} cajas</b>). Existe riesgo de merma física o falta menor.
+                    <div style='background-color: #fff8e1; padding: 16px; border-radius: 8px; border-left: 6px solid #ffb300; margin-bottom: 15px; color: #5d4037; font-size: 14px; line-height: 1.5;'>
+                        <h4 style='margin: 0 0 8px 0; color: #b7791f; font-weight: bold;'>⚠️ Aviso de Compromiso de Inventario (Proximidad del 5%)</h4>
+                        Estimado cliente, le ofrecemos una sincera disculpa. Su pedido de <b>{b2b_cantidad} cajas</b> se encuentra muy cerca del límite del inventario disponible de <b>{b2b_producto}</b> en este CEDI (<b>{stock_actual} cajas</b>).
+                        <br><br>
+                        Existe la posibilidad de que alguna unidad sufra mermas menores durante el proceso de surtido en almacén. Para salvaguardar su entrega, le solicitamos autorizar la reposición por su sustituto preferido en caso de que ocurra algún incidente.
                     </div>
                     """, unsafe_allow_html=True)
                 else: # excede
                     st.markdown(f"""
-                    <div style='background-color: #ffebee; padding: 12px; border-radius: 8px; border-left: 5px solid #f44336; margin-bottom: 12px; color: #c62828; font-size: 13px; line-height: 1.4;'>
-                        <b>❌ Alerta de Disponibilidad Insuficiente</b><br>
-                        Tu pedido de <b>{b2b_cantidad} cajas</b> supera el stock disponible de {b2b_producto} (<b>{stock_actual} cajas</b>) en este CEDI.
+                    <div style='background-color: #ffe5ec; padding: 16px; border-radius: 8px; border-left: 6px solid #d81b60; margin-bottom: 15px; color: #5f1530; font-size: 14px; line-height: 1.5;'>
+                        <h4 style='margin: 0 0 8px 0; color: #c2185b; font-weight: bold;'>❌ Ajuste Confirmado de Inventario</h4>
+                        Estimado cliente, le ofrecemos una sincera disculpa. Su pedido de <b>{b2b_cantidad} cajas</b> excede la disponibilidad actual de <b>{b2b_producto}</b> en este CEDI (<b>{stock_actual} cajas</b>).
+                        <br><br>
+                        Le confirmamos que se realizará un cambio en las cajas que no podamos cubrir, reponiéndolas con el producto alternativo de su elección, y se le otorgará un descuento proporcional a la cantidad reemplazada en su factura final.
                     </div>
                     """, unsafe_allow_html=True)
                 
