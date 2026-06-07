@@ -210,6 +210,10 @@ if 'b2b_pedido_procesado' not in st.session_state:
     st.session_state.b2b_proteccion_activada = False
     st.session_state.b2b_regla_5_porciento = False
     st.session_state.b2b_segundo_producto_agregado = False
+    st.session_state.b2b_reposicion_opcion_1 = ""
+    st.session_state.b2b_reposicion_opcion_2 = ""
+    st.session_state.b2b_decision_tomada = ""
+    st.session_state.b2b_tipo_caso = ""
 
 # Título Principal
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>🥤 Smart Order Rescue</h1>", unsafe_allow_html=True)
@@ -510,11 +514,16 @@ if rol == "🛒 Comprador B2B (Cliente)":
                     if mejor_accion != mejor_accion_sin and "B)" in mejor_accion:
                         proteccion_activada = True
                     
-                    # Regla de aproximación de stock crítico (5%)
-                    regla_5_porciento = False
-                    if stock_actual > 0 and b2b_cantidad <= stock_actual:
-                        if b2b_cantidad >= 0.95 * stock_actual:
-                            regla_5_porciento = True
+                    # Determinar tipo de caso de stockout/proximidad
+                    tipo_caso = "normal"
+                    if stock_actual > 0:
+                        if b2b_cantidad > stock_actual:
+                            tipo_caso = "excede"
+                        elif b2b_cantidad >= 0.95 * stock_actual:
+                            # 5% de proximidad
+                            tipo_caso = "cercano"
+                    else:
+                        tipo_caso = "excede" # No hay stock
 
                     st.session_state.b2b_pedido_procesado = True
                     st.session_state.b2b_producto = b2b_producto
@@ -527,13 +536,17 @@ if rol == "🛒 Comprador B2B (Cliente)":
                     st.session_state.b2b_simular_llamada_clic = False
                     st.session_state.b2b_llamada_confirmada = False
                     st.session_state.b2b_proteccion_activada = proteccion_activada
-                    st.session_state.b2b_regla_5_porciento = regla_5_porciento
+                    st.session_state.b2b_tipo_caso = tipo_caso
+                    st.session_state.b2b_decision_tomada = ""
+                    st.session_state.b2b_reposicion_opcion_1 = ""
+                    st.session_state.b2b_reposicion_opcion_2 = ""
+                    st.session_state.b2b_regla_5_porciento = (tipo_caso == "cercano")
                     st.session_state.b2b_segundo_producto_agregado = False
                     st.rerun()
 
         with col_res:
             if st.session_state.b2b_pedido_procesado:
-                st.subheader("🤖 Estatus del Pedido (Decisión MPC Automática)")
+                st.subheader("🤖 Estatus del Pedido (Gestión Proactiva de Stock)")
                 
                 producto = st.session_state.b2b_producto
                 cantidad = st.session_state.b2b_cantidad
@@ -541,171 +554,111 @@ if rol == "🛒 Comprador B2B (Cliente)":
                 prob_real = st.session_state.b2b_prob_real
                 stock_actual = inventario.get(producto, 0)
                 mejor_accion = st.session_state.b2b_mejor_accion
+                tipo_caso = st.session_state.get('b2b_tipo_caso', 'normal')
                 
-                if st.session_state.get('b2b_segundo_producto_agregado', False):
-                    st.success("✅ PEDIDO CONFIRMADO CON PRODUCTO DE RESPALDO")
-                    cant_respaldo = max(1, int(cantidad * 0.5))
-                    st.markdown(f"""
-                    **Resumen de la Orden (Con Respaldo de Seguridad):**
-                    - Producto Principal: **{producto}** ({cantidad} cajas)
-                    - Producto de Respaldo Añadido: **{sustituto_sugerido}** ({cant_respaldo} cajas)
-                    - Beneficio Aplicado: **🎟️ Cupón de 10% de Descuento para tu Siguiente Compra**
-                    - Estatus de Despacho: *En preparación para salida conjunta*
-                    """)
+                if st.session_state.b2b_decision_tomada != "":
+                    decision = st.session_state.b2b_decision_tomada
+                    
+                    if decision == "continuar":
+                        st.info("📝 PEDIDO REGISTRADO (SIN CAMBIOS PRE-APROBADOS)")
+                        if tipo_caso == "cercano":
+                            st.markdown(f"""
+                            Tu pedido de **{cantidad} cajas de {producto}** ha sido enviado.
+                            
+                            *Aviso del CEDI:* Hemos notificado al personal de carga sobre la cercanía del límite del stock. 
+                            Las cajas se manipularán con extremo cuidado para evitar mermas por roturas.
+                            """)
+                        elif tipo_caso == "excede":
+                            st.markdown(f"""
+                            Tu pedido de **{cantidad} cajas de {producto}** ha sido enviado.
+                            
+                            *Aviso del CEDI:* Debido a que solicitaste más del stock disponible (sólo contamos con **{stock_actual} cajas**), las **{cantidad - stock_actual} cajas faltantes** serán reubicadas de urgencia o canceladas de forma automática al despachar.
+                            """)
+                        else:
+                            st.markdown(f"Tu pedido de **{cantidad} cajas de {producto}** ha sido registrado correctamente.")
+                            
+                    elif decision == "hacer_cambio":
+                        st.success("✅ PEDIDO CONFIRMADO CON PLAN DE REPOSICIÓN PRE-AUTORIZADO")
+                        st.markdown(f"""
+                        **Resumen de la Orden:**
+                        - Producto Solicitado: **{producto}** ({cantidad} cajas)
+                        - Estatus de Reposición: **Pre-autorizada por el cliente en caso de merma o faltante**
+                        - **1ª Opción de Reposición (Sustituto Favorito):** {st.session_state.b2b_reposicion_opcion_1}
+                        - **2ª Opción de Reposición (Segunda Alternativa):** {st.session_state.b2b_reposicion_opcion_2}
+                        
+                        🏆 **Beneficio Aplicado:** ¡Se ha acreditado un **🎟️ Cupón de 10% de Descuento para tu Siguiente Compra**!
+                        """)
+                    
                     if st.button("🔄 Hacer Nuevo Pedido", use_container_width=True):
                         st.session_state.b2b_pedido_procesado = False
-                        st.session_state.b2b_segundo_producto_agregado = False
+                        st.session_state.b2b_decision_tomada = ""
+                        st.session_state.b2b_reposicion_opcion_1 = ""
+                        st.session_state.b2b_reposicion_opcion_2 = ""
                         st.session_state.b2b_regla_5_porciento = False
+                        st.session_state.b2b_segundo_producto_agregado = False
                         st.session_state.b2b_llamada_confirmada = False
                         st.rerun()
                 else:
-                    # Banner de Protección de Lealtad
-                    if st.session_state.get('b2b_proteccion_activada', False):
-                        cliente_nombre = st.session_state.b2b_cliente_nombre
-                        tasa_sub = MAP_CLIENTE_PERFIL.get(cliente_nombre, {}).get("tasa", 0.0)
+                    if tipo_caso == "normal":
+                        st.success("🚚 PEDIDO REGISTRADO Y EN RUTA")
                         st.markdown(f"""
-                        <div style='background-color: #fff8e1; padding: 15px; border-radius: 8px; border-left: 6px solid #ffb300; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #5d4037;'>
-                            <h4 style='margin: 0; color: #5d4037; font-size: 14px; font-weight: bold;'>🛡️ Regla de Protección de Lealtad Activada</h4>
-                            <p style='margin: 5px 0 0 0; font-size: 13px; color: #5d4037; line-height: 1.4;'>
-                                El sistema detectó que este cliente tiene una tasa de sustitución histórica crítica (<b>{tasa_sub:.1f}%</b>). 
-                                Para proteger su relación con Arca Continental y evitar su descontento, el MPC penalizó las opciones de cambio de producto y 
-                                eligió automáticamente <b>entregarle su producto original</b> (mediante la acción <b>{mejor_accion}</b>).
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    # Banner de Regla del 5% (Proximidad de Stock Crítico)
-                    if st.session_state.get('b2b_regla_5_porciento', False):
-                        cant_respaldo = max(1, int(cantidad * 0.5))
-                        st.markdown(f"""
-                        <div style='background-color: #ffebee; padding: 15px; border-radius: 8px; border-left: 6px solid #d32f2f; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #c62828;'>
-                            <h4 style='margin: 0; font-weight: bold;'>⚠️ Alerta de Stock Crítico (Regla del 5%)</h4>
-                            <p style='margin: 5px 0 0 0; font-size: 13px; line-height: 1.4;'>
-                                Tu pedido de <b>{cantidad} cajas</b> consume el 95% o más del stock disponible de <b>{producto}</b> ({stock_actual} cajas).
-                                Existe una alta probabilidad de que tu producto pueda llegar a escasear de último momento debido a otros pedidos simultáneos.
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        Tu pedido de **{cantidad} cajas de {producto}** ha sido ingresado al sistema.
                         
-                        st.markdown("**🛡️ Diversificación de Pedido:**")
-                        st.info(f"Evita contratiempos agregando un segundo producto de respaldo que sí tenemos en stock: **{sustituto_sugerido}**.")
-                        if st.button(f"➕ Agregar {cant_respaldo} cajas de '{sustituto_sugerido}' como respaldo + 10% Descuento en Próxima Compra", use_container_width=True):
-                            st.session_state.b2b_segundo_producto_agregado = True
-                            st.rerun()
-                        st.write("---")
-                    
-                    if st.session_state.b2b_llamada_confirmada:
-                        st.success("✅ PEDIDO CONFIRMADO CON SUSTITUCIÓN ACEPTADA")
-                        st.markdown(f"""
-                        **Resumen de la Orden Corregida:**
-                        - Producto Original: ~*{producto}*~ *(Sin Stock)*
-                        - Producto Entregado: **{sustituto_sugerido}**
-                        - Cantidad: **{cantidad} cajas**
-                        - Descuento Especial Aplicado: **$8.00 USD**
-                        - Estatus de Despacho: *En preparación para salida*
+                        *Nota del Gemelo Digital:* Se estima un riesgo de desabasto muy bajo ({prob_real*100:.1f}%), por lo que tu pedido sigue su ruta convencional.
                         """)
-                    else:
-                        if "A)" in mejor_accion:
-                            st.info("📝 PEDIDO REGISTRADO Y EN CURSO")
-                            st.markdown(f"""
-                            Tu pedido de **{cantidad} cajas de {producto}** ha sido ingresado al sistema.
-                            
-                            *Nota del Gemelo Digital:* Se estima un riesgo de desabasto muy bajo ({prob_real*100:.1f}%), por lo que tu pedido sigue su ruta convencional.
-                            """)
-                        elif "B)" in mejor_accion:
-                            st.success("🚚 PEDIDO APROBADO (LOGÍSTICA PREDICTIVA ACTIVADA)")
-                            st.markdown(f"""
-                            Tu pedido de **{cantidad} cajas de {producto}** ha sido aprobado con entrega garantizada.
-                            
-                            *Acción Automatizada:* Detectamos un riesgo moderado de falta de stock en este CEDI ({prob_real*100:.1f}%). El sistema MPC de Arca Continental ha ordenado la **reubicación de inventario urgente** desde un CEDI vecino para cubrir tu orden a tiempo y sin costo adicional.
-                            """)
-                        elif "C)" in mejor_accion:
-                            st.error("⚠️ AJUSTE DE PEDIDO REQUERIDO (RECOMENDACIÓN MPC)")
-                            st.markdown(f"""
-                            Detectamos un desabasto crítico de **{producto}** en el CEDI {b2b_cedi}. 
-                            
-                            El sistema MPC recomienda la opción **C: Ofrecer sustituto '{sustituto_sugerido}' con descuento**. 
-                            Por favor, atiende la llamada del agente virtual de soporte o realiza la simulación a continuación:
-                            """)
-                            
-                            if elevenlabs_agent_id:
-                                st.write("🤖 **Llamada Telefónica con Agente de Voz IA en Vivo:**")
-                                
-                                order_id_esc = f"AC-{b2b_cedi}-1042".replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-                                customer_name_esc = str(st.session_state.b2b_cliente_nombre).replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-                                product_name_esc = str(producto).replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-                                quantity_esc = str(cantidad).replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-                                substitute_name_esc = str(sustituto_sugerido).replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-                                discount_value_esc = "8.0 USD"
-                                
-                                components.html(f"""
-                                <div style="display: flex; justify-content: center; align-items: center; height: 180px; flex-direction: column; font-family: sans-serif;">
-                                    <elevenlabs-convai 
-                                        id="el-agent-b2b"
-                                        agent-id="{elevenlabs_agent_id}"
-                                    ></elevenlabs-convai>
-                                    <script>
-                                        const el = document.getElementById("el-agent-b2b");
-                                        const vars = {{
-                                            "order_id": "{order_id_esc}",
-                                            "customer_name": "{customer_name_esc}",
-                                            "product_name": "{product_name_esc}",
-                                            "quantity": "{quantity_esc}",
-                                            "substitute_name": "{substitute_name_esc}",
-                                            "discount_value": "{discount_value_esc}"
-                                        }};
-                                        el.setAttribute("dynamic-variables", JSON.stringify(vars));
-                                        console.log("B2B ElevenLabs Dynamic Variables:", vars);
-                                    </script>
-                                    <script src="https://elevenlabs.io/convai-widget/index.js" type="text/javascript"></script>
-                                    <p style="margin-top: 10px; font-size: 12px; color: #666;">Usa tu micrófono para hablar con el agente flotante de Arca Continental.</p>
-                                </div>
-                                """, height=220)
-                            else:
-                                st.write("El sistema generará el audio de la llamada vía API. Si quieres hablar por micrófono, ingresa tu `Agent ID` de ElevenLabs en la barra lateral.")
-                                
-                                if st.button("📞 Simular Llamada de Voz con IA (API)", use_container_width=True, key="b2b_sim_ll"):
-                                    st.session_state.b2b_simular_llamada_clic = True
-                                
-                                if st.session_state.b2b_simular_llamada_clic:
-                                    texto_ia = f"Hola, buenas tardes. Le llamamos del Centro de Distribución {b2b_cedi} de Arca Continental. Vemos que solicitó {cantidad} cajas de {producto}, pero debido a un problema de stock, es muy probable que no las tengamos listas para despacho. ¿Aceptaría cambiarlas por {sustituto_sugerido} y le aplicamos un descuento de 8 dólares en ese artículo?"
-                                    
-                                    audio_bytes = None
-                                    with st.spinner("Generando audio de la llamada..."):
-                                        if elevenlabs_api_key:
-                                            audio_bytes = generar_voz_elevenlabs(texto_ia, elevenlabs_api_key)
-                                        
-                                        if audio_bytes is None:
-                                            try:
-                                                tts = gTTS(text=texto_ia, lang='es', tld='com.mx')
-                                                temp_audio_path = os.path.join(current_dir, "temp_call_b2b.mp3")
-                                                tts.save(temp_audio_path)
-                                                with open(temp_audio_path, "rb") as f:
-                                                    audio_bytes = f.read()
-                                                os.remove(temp_audio_path)
-                                            except Exception as e:
-                                                st.error(f"Error al generar audio de cortesía: {e}")
-                                                
-                                    if audio_bytes:
-                                        st.audio(audio_bytes, format="audio/mp3")
-                                    
-                                    st.markdown("**Transcripción de la Conversación:**")
-                                    st.markdown(f"""
-                                    <div class='chat-bubble chat-agent'>
-                                        <b>🤖 Agente IA:</b> {texto_ia}
-                                    </div>
-                                    <div class='chat-bubble chat-user'>
-                                        <b>👤 Comprador ({st.session_state.b2b_cliente_nombre}):</b> Sí, está bien, acepto el cambio con descuento.
-                                    </div>
-                                    <div class='chat-bubble chat-agent'>
-                                        <b>🤖 Agente IA:</b> Excelente, su pedido ha sido actualizado. Recibirá la nota corregida en unos momentos.
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                    
-                        # Botón para confirmar cambio en la orden (simulando que el cliente lo aceptó de viva voz)
-                        if st.button("✅ Aceptar Sustitución y Descuento en Orden", use_container_width=True):
-                            st.session_state.b2b_llamada_confirmada = True
+                        if st.button("🔄 Hacer Nuevo Pedido", use_container_width=True):
+                            st.session_state.b2b_pedido_procesado = False
                             st.rerun()
+                    else:
+                        # Casos Críticos: Cercano o Excede
+                        if tipo_caso == "cercano":
+                            st.markdown(f"""
+                            <div style='background-color: #fff3e0; padding: 15px; border-radius: 8px; border-left: 6px solid #ff9800; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #e65100;'>
+                                <h4 style='margin: 0; font-size: 14px; font-weight: bold;'>⚠️ Aviso de Compromiso de Stock (Proximidad del 5%)</h4>
+                                <p style='margin: 5px 0 0 0; font-size: 13px; line-height: 1.4;'>
+                                    Tu pedido de <b>{cantidad} cajas</b> de <b>{producto}</b> consume casi todo el inventario disponible (<b>{stock_actual} cajas</b>).
+                                    Existe riesgo de que alguna caja se rompa durante el surtido o haya discrepancias físicas en el almacén.
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        elif tipo_caso == "excede":
+                            st.markdown(f"""
+                            <div style='background-color: #ffebee; padding: 15px; border-radius: 8px; border-left: 6px solid #f44336; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #c62828;'>
+                                <h4 style='margin: 0; font-size: 14px; font-weight: bold;'>❌ Alerta de Disponibilidad Insuficiente (Stock Superado)</h4>
+                                <p style='margin: 5px 0 0 0; font-size: 13px; line-height: 1.4;'>
+                                    Tu pedido de <b>{cantidad} cajas</b> supera el stock disponible de <b>{producto}</b> (<b>{stock_actual} cajas</b>) en este CEDI.
+                                    Es seguro que parte de tu pedido requerirá una reposición de producto.
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        st.markdown("### 📋 Plan de Reposición Preventiva")
+                        st.write("Selecciona los dos productos que más te gustaría recibir en caso de requerir reposición:")
+                        
+                        lista_alternativas = [p for p in inventario.keys() if p != producto]
+                        if not lista_alternativas:
+                            lista_alternativas = ["Coca-Cola Sin Azúcar", "Coca-Cola Light"]
+                            
+                        opcion_1 = st.selectbox("1ª Opción de Reposición (Sustituto Favorito)", lista_alternativas)
+                        
+                        lista_alternativas_2 = [p for p in lista_alternativas if p != opcion_1]
+                        if not lista_alternativas_2:
+                            lista_alternativas_2 = ["Coca-Cola Light", "Sprite Lima Limón"]
+                            
+                        opcion_2 = st.selectbox("2ª Opción de Reposición (Segunda Alternativa)", lista_alternativas_2)
+                        
+                        st.write("")
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button("📝 Continuar sin cambios", use_container_width=True):
+                                st.session_state.b2b_decision_tomada = "continuar"
+                                st.rerun()
+                        with col_b2:
+                            if st.button("🔄 Hacer un cambio (Autorizar Reposición + 10% Descuento)", use_container_width=True):
+                                st.session_state.b2b_decision_tomada = "hacer_cambio"
+                                st.session_state.b2b_reposicion_opcion_1 = opcion_1
+                                st.session_state.b2b_reposicion_opcion_2 = opcion_2
+                                st.rerun()
             else:
                 st.info("👈 Ingresa los datos de tu pedido y haz clic en 'Enviar Pedido'.")
     st.stop()
