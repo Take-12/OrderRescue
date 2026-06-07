@@ -396,32 +396,6 @@ if rol == "🛒 Comprador B2B (Cliente)":
             </div>
             """, unsafe_allow_html=True)
             
-            # --- FICHA DE LEALTAD ---
-            perfil = MAP_CLIENTE_PERFIL.get(st.session_state.b2b_cliente_nombre, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0})
-            tasa_sub = perfil["tasa"]
-            
-            if tasa_sub >= 35.0:
-                semaforo_color = "#d32f2f" # rojo
-                semaforo_text = "🚨 Tolerancia Crítica (Riesgo de Abandono)"
-                semaforo_desc = "El cliente ha sufrido múltiples sustituciones históricas. El MPC priorizará entregar el producto original."
-            elif tasa_sub >= 15.0:
-                semaforo_color = "#f57c00" # naranja
-                semaforo_text = "⚠️ Tolerancia Moderada"
-                semaforo_desc = "El cliente ha tenido sustituciones previas de forma intermitente."
-            else:
-                semaforo_color = "#388e3c" # verde
-                semaforo_text = "✅ Tolerancia Alta (Cliente Satisfecho)"
-                semaforo_desc = "Historial limpio. Tolerancia adecuada para ofrecer sustituciones con descuento."
-                
-            st.markdown(f"""
-            <div style='background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-top: 4px solid {semaforo_color}; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); color: #333333;'>
-                <h4 style='margin: 0 0 5px 0; color: {semaforo_color}; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold;'>🛡️ Ficha de Lealtad del Cliente</h4>
-                <p style='margin: 0; font-size: 12px; color: #222222;'>Pedidos Totales: <b>{perfil["pedidos"]}</b> | Cambios: <b>{perfil["sustituciones"]} ({tasa_sub:.1f}%)</b></p>
-                <p style='margin: 4px 0 0 0; font-size: 11px; font-weight: bold; color: {semaforo_color};'>{semaforo_text}</p>
-                <p style='margin: 3px 0 0 0; font-size: 10px; color: #444444; line-height: 1.2;'>{semaforo_desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
             # Cargar productos estrella correspondientes al CEDI actual
             df_prods_cedi = get_top_productos_cedi(st.session_state.b2b_cedi)
             lista_prods = df_prods_cedi['producto'].tolist()
@@ -485,6 +459,7 @@ if rol == "🛒 Comprador B2B (Cliente)":
                     mejor_accion_sin = df_sin.iloc[0]["Acción"]
                     
                     # Calcular decisión con protección de lealtad
+                    perfil = MAP_CLIENTE_PERFIL.get(st.session_state.b2b_cliente_nombre, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0})
                     tasa_historica = perfil.get("tasa", 0.0)
                     penalizacion_lealtad = (tasa_historica / 100.0) * 80.0  # hasta $40 USD extra por insatisfacción
                     
@@ -664,10 +639,9 @@ if rol == "🛒 Comprador B2B (Cliente)":
     st.stop()
 
 # ----------------- TABS PRINCIPALES -----------------
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2 = st.tabs([
     "🎯 Simulador Live Gemelo Digital + MPC", 
-    "📊 Dashboard CEDI y Analíticas", 
-    "📈 Optimización Bayesiana"
+    "📊 Dashboard CEDI y Analíticas"
 ])
 
 # ----------------- TAB 1: SIMULADOR LIVE -----------------
@@ -714,20 +688,15 @@ with tab1:
                 sustituto_sugerido = otros_prods[0] if otros_prods else "Coca-Cola Sin Azúcar"
                 
                 opciones = {
-                    "A) No hacer nada (Permitir Sustitución en CEDI)": {
+                    "A) Autorizar Reposición Preventiva (Con Descuento)": {
+                        "costo_fijo": costo_descuento,
+                        "prob_falla": 0.02,
+                        "desc": f"El cliente pre-aprueba el plan de reposición automática con sustitutos (ej. '{sustituto_sugerido}') y recibe 10% de descuento."
+                    },
+                    "B) Entregar Solo Disponible (Sin Reposición / Cancelar Faltante)": {
                         "costo_fijo": 0.0,
                         "prob_falla": prob_real,
-                        "desc": "El operador toma la decisión al azar en el CEDI. Alta probabilidad de queja y devolución."
-                    },
-                    "B) Reubicación de stock urgente (Mover de CEDI cercano)": {
-                        "costo_fijo": 35.0,
-                        "prob_falla": 0.05,
-                        "desc": "Envío exprés desde otro almacén. Elimina el desabasto pero tiene costo logístico."
-                    },
-                    "C) Notificar al cliente y autorizar sustituto con descuento": {
-                        "costo_fijo": costo_descuento,
-                        "prob_falla": prob_real * 0.1,
-                        "desc": f"Llamada con IA de ElevenLabs al cliente ofreciendo cambiar por '{sustituto_sugerido}' con descuento."
+                        "desc": "Se despacha únicamente el stock existente del producto original y el resto se cancela de la factura. Sin descuentos."
                     }
                 }
                 
@@ -896,41 +865,5 @@ with tab2:
     
     conn.close()
 
-# ----------------- TAB 3: OPTIMIZACION BAYESIANA -----------------
-with tab3:
-    st.header("Auto-Ajuste mediante Optimización Bayesiana")
-    st.write("""
-    El controlador MPC requiere parámetros económicos calibrados de forma precisa. 
-    La **Optimización Bayesiana** (basada en Procesos Gaussianos) evalúa la simulación histórica de 100 pedidos 
-    de este almacén y busca automáticamente la combinación óptima de parámetros que minimiza las pérdidas operativas.
-    """)
-    
-    col_opt1, col_opt2 = st.columns([1, 2])
-    
-    with col_opt1:
-        st.subheader("Control del Optimizador")
-        num_iter = st.slider("Número de Iteraciones Bayesianas", 10, 30, 15)
-        iniciar_opt = st.button("📈 Iniciar Búsqueda Bayesiana", use_container_width=True)
-        
-    with col_opt2:
-        if iniciar_opt:
-            with st.spinner("Ejecutando algoritmo bayesiano con Procesos Gaussianos..."):
-                time.sleep(1)
-                df_hist, best_x, best_y = ejecutar_optimizacion_bayesiana(current_dir, max_iter=num_iter)
-                
-                st.success("¡Optimización completada con éxito!")
-                
-                st.markdown(f"""
-                ### 🏆 Configuración Óptima Encontrada:
-                - **Penalización por Falla Recomendada:** `${best_x[0]:.2f} USD`
-                - **Costo de Descuento Recomendado:** `${best_x[1]:.2f} USD`
-                - **Costo Promedio Operativo por Pedido:** `${best_y:.2f} USD` *(Minimizado desde un promedio inicial de $15+)*.
-                """)
-                
-                st.subheader("Curva de Aprendizaje y Minimización del Costo")
-                st.line_chart(data=df_hist.set_index("Iteración")["Costo Promedio Pedido ($)"], color="#e41e26")
-                
-                st.subheader("Historial de Búsqueda del Proceso Gaussiano")
-                st.dataframe(df_hist, use_container_width=True)
-        else:
-            st.info("💡 Haz clic en 'Iniciar Búsqueda Bayesiana' para calcular la sintonización automática de parámetros.")
+
+
