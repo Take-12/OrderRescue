@@ -41,8 +41,9 @@ def llamar_api_gemini(mensaje_usuario, api_key):
     headers = {"Content-Type": "application/json"}
     
     contents = []
-    # Cargar los últimos 8 mensajes para mantener memoria de la conversación
-    for msg in st.session_state.chatbot_historial[-8:]:
+    # Cargar los mensajes previos del historial (excluyendo el mensaje actual que acabamos de agregar al final)
+    historial_previo = st.session_state.chatbot_historial[:-1] if len(st.session_state.chatbot_historial) > 0 else []
+    for msg in historial_previo[-7:]:
         role_map = "user" if msg["role"] == "user" else "model"
         contents.append({
             "role": role_map,
