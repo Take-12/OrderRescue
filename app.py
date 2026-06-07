@@ -1108,7 +1108,7 @@ with tab3:
 st.markdown("""
 <style>
     /* Estilos para el contenedor flotante del botón */
-    div[data-testid="stVerticalBlock"]:has(.my-marker-chat-btn) {
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="element-container"] .my-marker-chat-btn) {
         position: fixed !important;
         bottom: 20px !important;
         right: 20px !important;
@@ -1118,7 +1118,7 @@ st.markdown("""
     }
     
     /* Estilos para el botón flotante en sí */
-    div[data-testid="stVerticalBlock"]:has(.my-marker-chat-btn) button {
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="element-container"] .my-marker-chat-btn) button {
         border-radius: 50% !important;
         width: 60px !important;
         height: 60px !important;
@@ -1134,13 +1134,13 @@ st.markdown("""
         transition: transform 0.2s ease !important;
     }
     
-    div[data-testid="stVerticalBlock"]:has(.my-marker-chat-btn) button:hover {
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="element-container"] .my-marker-chat-btn) button:hover {
         transform: scale(1.08) !important;
         background-color: #c31820 !important;
     }
     
     /* Estilos para el contenedor flotante de la ventana de chat */
-    div[data-testid="stVerticalBlock"]:has(.my-marker-chat-window) {
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="element-container"] .my-marker-chat-window) {
         position: fixed !important;
         bottom: 90px !important;
         right: 20px !important;
@@ -1158,7 +1158,7 @@ st.markdown("""
     }
     
     /* Quitar padding innecesario de streamlit en el bloque del chat */
-    div[data-testid="stVerticalBlock"]:has(.my-marker-chat-window) > div {
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="element-container"] .my-marker-chat-window) > div {
         padding: 0 !important;
     }
 </style>
