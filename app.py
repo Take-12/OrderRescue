@@ -82,7 +82,7 @@ def llamar_api_gemini(mensaje_usuario, api_key):
         },
         "generationConfig": {
             "temperature": 0.3,
-            "maxOutputTokens": 350
+            "maxOutputTokens": 2000
         }
     }
     
