@@ -711,7 +711,8 @@ with tab1:
     st.write("Gestiona las alertas operativas de stock en tiempo real y revisa los perfiles de lealtad de tus clientes:")
 
     # Dividir en dos columnas para una vista premium
-    col_menu, col_detail = st.columns([1, 1.8])
+    col_container = st.container()
+    col_menu, col_detail = col_container.columns([1, 1.8])
 
     with col_menu:
         # Selección de carpeta/bandeja
@@ -801,60 +802,6 @@ with tab1:
                 """, unsafe_allow_html=True)
                 
 
-                # Gráficas de prioridad para CEDI y Asignación de Prioridades
-                st.markdown("---")
-                st.subheader("📊 Panel de Priorización de Abasto CEDI")
-                
-                col_priority, col_chart = st.columns([1.1, 1.3])
-                
-                # Generar datos de prioridad
-                prioridades = []
-                for a in alertas:
-                    dif = max(0, a["cantidad"] - a["stock_actual"])
-                    prio_score = (dif / a["stock_actual"]) * 100 if a["stock_actual"] > 0 else 100.0
-                    if a["tipo_caso"] == "cercano":
-                        prio_score = 15.0 # Prioridad baja para alertas de cercanía
-                    prioridades.append({
-                        "Alerta": f"{a['cliente']} ({a['producto']})",
-                        "Severidad (%)": round(prio_score, 1)
-                    })
-                
-                # Ordenar prioridades de mayor a menor severidad
-                prioridades = sorted(prioridades, key=lambda x: x["Severidad (%)"], reverse=True)
-                lista_nombres_alertas_ordenados = [p["Alerta"] for p in prioridades]
-                
-                with col_priority:
-                    st.markdown("🎯 **Prioridades de Abasto Detectadas:**")
-                    st.write("Las alertas están ordenadas automáticamente de mayor a menor gravedad según el déficit:")
-                    
-                    alerta_seleccionada_prio = st.selectbox(
-                        "Seleccionar CEDI / Pedido Crítico:",
-                        lista_nombres_alertas_ordenados if lista_nombres_alertas_ordenados else ["No hay alertas"]
-                    )
-                    
-                    # Buscar el score de severidad
-                    score_prio = 0.0
-                    for p in prioridades:
-                        if p["Alerta"] == alerta_seleccionada_prio:
-                            score_prio = p["Severidad (%)"]
-                            break
-                    
-                    st.markdown(f"""
-                    <div style='background-color: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #ddd; color: #333;'>
-                        📢 <b>Prioridad del Sistema:</b> { '🔴 Crítica/Urgente' if score_prio >= 50.0 else ('🟠 Alta' if score_prio >= 30.0 else '🟡 Media') }<br>
-                        📈 <b>Severidad de Desabasto:</b> {score_prio}%
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if st.button("🚀 Mandar a Pedir Stock", use_container_width=True):
-                        st.success(f"✅ Se ha enviado una orden de reabastecimiento urgente para: **{alerta_seleccionada_prio}**.")
-                        
-                with col_chart:
-                    st.markdown("📈 **Gráfica de Severidad:**")
-                    df_prio = pd.DataFrame(prioridades)
-                    if not df_prio.empty:
-                        st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
-                
             else:
                 st.info("Selecciona una notificación de la lista para ver su detalle y tomar cartas en el asunto.")
                 
@@ -928,6 +875,64 @@ with tab1:
                     st.success(f"🎉 ¡Descuento de **{nuevo_desc}%** Aplicado con éxito!")
                 else:
                     st.warning("⏳ Pendiente de confirmación por el operador.")
+
+    # ----------------- PANEL DE PRIORIZACIÓN A ANCHO COMPLETO -----------------
+    if bandeja == "🚨 Alertas de Stock Crítico":
+        alertas = st.session_state.get('b2b_alertas_operador', [])
+        if alertas:
+            st.markdown("---")
+            st.subheader("📊 Panel de Priorización de Abasto CEDI")
+            
+            col_priority, col_chart = st.columns([1.1, 1.3])
+            
+            # Generar datos de prioridad
+            prioridades = []
+            for a in alertas:
+                dif = max(0, a["cantidad"] - a["stock_actual"])
+                prio_score = (dif / a["stock_actual"]) * 100 if a["stock_actual"] > 0 else 100.0
+                if a["tipo_caso"] == "cercano":
+                    prio_score = 15.0 # Prioridad baja para alertas de cercanía
+                prioridades.append({
+                    "Alerta": f"{a['cliente']} ({a['producto']})",
+                    "Severidad (%)": round(prio_score, 1)
+                })
+            
+            # Ordenar prioridades de mayor a menor severidad
+            prioridades = sorted(prioridades, key=lambda x: x["Severidad (%)"], reverse=True)
+            lista_nombres_alertas_ordenados = [p["Alerta"] for p in prioridades]
+            
+            with col_priority:
+                st.markdown("🎯 **Prioridades de Abasto Detectadas:**")
+                st.write("Las alertas están ordenadas automáticamente de mayor a menor gravedad según el déficit:")
+                
+                alerta_seleccionada_prio = st.selectbox(
+                    "Seleccionar CEDI / Pedido Crítico:",
+                    lista_nombres_alertas_ordenados if lista_nombres_alertas_ordenados else ["No hay alertas"],
+                    key="prio_selectbox_fullwidth"
+                )
+                
+                # Buscar el score de severidad
+                score_prio = 0.0
+                for p in prioridades:
+                    if p["Alerta"] == alerta_seleccionada_prio:
+                        score_prio = p["Severidad (%)"]
+                        break
+                
+                st.markdown(f"""
+                <div style='background-color: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #ddd; color: #333;'>
+                    📢 <b>Prioridad del Sistema:</b> { '🔴 Crítica/Urgente' if score_prio >= 50.0 else ('🟠 Alta' if score_prio >= 30.0 else '🟡 Media') }<br>
+                    📈 <b>Severidad de Desabasto:</b> {score_prio}%
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("🚀 Mandar a Pedir Stock", use_container_width=True, key="prio_btn_fullwidth"):
+                    st.success(f"✅ Se ha enviado una orden de reabastecimiento urgente para: **{alerta_seleccionada_prio}**.")
+                    
+            with col_chart:
+                st.markdown("📈 **Gráfica de Severidad:**")
+                df_prio = pd.DataFrame(prioridades)
+                if not df_prio.empty:
+                    st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
 
 # ----------------- TAB 2: DASHBOARD CEDI Y ANALITICAS -----------------
 with tab2:
