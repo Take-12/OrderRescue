@@ -696,9 +696,8 @@ if rol == "🛒 Comprador B2B (Cliente)":
         st.stop()
 
 # ----------------- TABS PRINCIPALES -----------------
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2 = st.tabs([
     "📥 Bandeja de Entrada del Operador", 
-    "📊 Dashboard CEDI y Analíticas",
     "🚀 Smart Order Rescue"
 ])
 
@@ -931,101 +930,8 @@ with tab1:
                 if not df_prio.empty:
                     st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
 
-# ----------------- TAB 2: DASHBOARD CEDI Y ANALITICAS -----------------
+# ----------------- TAB 2: SMART ORDER RESCUE -----------------
 with tab2:
-    st.header(f"Métricas y Analíticas del CEDI {cedi_seleccionado}")
-    st.write(f"Estadísticas específicas para el CEDI seleccionado en comparación con el promedio general de la red:")
-    
-    conn = get_db_connection()
-    
-    total_orders_cedi = pd.read_sql_query("SELECT count(distinct id_pedido) as c FROM orders WHERE cedis = ?;", conn, params=(cedi_seleccionado,)).iloc[0]['c']
-    sub_orders_cedi = pd.read_sql_query("""
-        SELECT count(distinct s.id_pedido) as c 
-        FROM sustituciones s
-        JOIN orders o ON s.id_pedido = o.id_pedido
-        WHERE o.cedis = ?;
-    """, conn, params=(cedi_seleccionado,)).iloc[0]['c']
-    
-    sub_lines_cedi = pd.read_sql_query("""
-        SELECT count(s.id_linea) as c 
-        FROM sustituciones s
-        JOIN orders o ON s.id_pedido = o.id_pedido
-        WHERE o.cedis = ?;
-    """, conn, params=(cedi_seleccionado,)).iloc[0]['c']
-    
-    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-    
-    with col_kpi1:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-label'>Total Pedidos CEDI {cedi_seleccionado}</div>
-            <div class='metric-value'>{total_orders_cedi:,}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_kpi2:
-        tasa_sub = (sub_orders_cedi / total_orders_cedi * 100) if total_orders_cedi > 0 else 0.0
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-label'>Tasa de Sustitución del CEDI</div>
-            <div class='metric-value'>{tasa_sub:.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_kpi3:
-        st.markdown(f"""
-        <div class='metric-card'>
-            <div class='metric-label'>Líneas Sustituidas en CEDI</div>
-            <div class='metric-value'>{sub_lines_cedi:,}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    st.write("")
-    
-    col_g1, col_g2 = st.columns(2)
-    
-    with col_g1:
-        st.subheader(f"🏆 Productos Más Sustituidos en CEDI {cedi_seleccionado}")
-        df_top_prod = pd.read_sql_query("""
-            SELECT s.nombre_sku_solicitado as Producto, count(*) as Sustituciones
-            FROM sustituciones s
-            JOIN orders o ON s.id_pedido = o.id_pedido
-            WHERE o.cedis = ?
-            GROUP BY s.nombre_sku_solicitado
-            ORDER BY Sustituciones DESC
-            LIMIT 5;
-        """, conn, params=(cedi_seleccionado,))
-        st.dataframe(df_top_prod, use_container_width=True)
-        
-    with col_g2:
-        st.subheader("📍 Los 5 CEDIS con más problemas en la red")
-        df_top_cedis = pd.read_sql_query("""
-            SELECT o.cedis as CEDI, count(s.id_linea) as Sustituciones
-            FROM orders o
-            JOIN sustituciones s ON o.id_pedido = s.id_pedido
-            GROUP BY o.cedis
-            ORDER BY Sustituciones DESC
-            LIMIT 5;
-        """, conn)
-        st.dataframe(df_top_cedis, use_container_width=True)
-        
-    st.subheader(f"🔄 Parejas de Cambio Más Frecuentes en CEDI {cedi_seleccionado}")
-    df_pairs = pd.read_sql_query("""
-        SELECT 
-            s.nombre_sku_solicitado as "Original Solicitado",
-            s.nombre_sku_solicitado_cambio as "Sustituto Entregado",
-            count(*) as "Cantidad de Veces"
-        FROM sustituciones s
-        JOIN orders o ON s.id_pedido = o.id_pedido
-        WHERE o.cedis = ?
-        GROUP BY s.nombre_sku_solicitado, s.nombre_sku_solicitado_cambio
-        ORDER BY "Cantidad de Veces" DESC
-        LIMIT 5;
-    """, conn, params=(cedi_seleccionado,))
-    st.dataframe(df_pairs, use_container_width=True)
-    
-    conn.close()
-
-# ----------------- TAB 3: SMART ORDER RESCUE -----------------
-with tab3:
     render_smart_order_rescue(cedi_seleccionado)
 
 
