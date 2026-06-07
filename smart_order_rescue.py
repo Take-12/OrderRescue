@@ -593,28 +593,6 @@ def render_smart_order_rescue(cedi_actual):
         st.subheader("🗄️ Consola y Consulta Histórica de la Base de Datos")
         st.write("Accede directamente a la información de pedidos, sustituciones, productos, clientes y alertas históricas mediante consultas directas.")
         
-        # Consola de consulta SQL
-        st.markdown("##### 💻 Consola de Consulta Interactiva SQL (Modo Lectura)")
-        sql_input = st.text_area("Escribe tu consulta SQL aquí (Ej: SELECT * FROM sustituciones LIMIT 5;)", value="SELECT * FROM sustituciones LIMIT 5;", height=80)
-        
-        ejecutar_sql = st.button("⚡ Ejecutar Consulta SQL", use_container_width=True)
-        if ejecutar_sql:
-            # Validaciones básicas de seguridad para evitar inyección dañina
-            sql_clean = sql_input.strip().lower()
-            if not sql_clean.startswith("select") and not sql_clean.startswith("pragma"):
-                st.error("❌ Operación no permitida. Solo se permiten consultas de selección (SELECT) para resguardo de la base de datos.")
-            else:
-                try:
-                    conn = get_db_connection()
-                    res_sql = pd.read_sql_query(sql_input, conn)
-                    conn.close()
-                    st.success("✅ Consulta ejecutada exitosamente:")
-                    st.dataframe(res_sql, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Error de base de datos: {e}")
-                    
-        st.write("---")
-        
         # Buscador de tablas interactivas
         st.markdown("##### 🔎 Navegador Visual de Tablas")
         db_tablas = {
