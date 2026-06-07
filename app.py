@@ -33,6 +33,7 @@ descargar_base_de_datos_si_falta()
 
 # Importamos la función de optimización bayesiana
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
+from smart_order_rescue import render_smart_order_rescue
 
 
 
@@ -322,7 +323,7 @@ st.markdown("<p style='text-align: center; font-size: 18px; color: #555;'>Gemelo
 
 # ----------------- SIDEBAR -----------------
 st.sidebar.markdown("<h2 style='color: #e41e26;'>👥 Rol de Usuario</h2>", unsafe_allow_html=True)
-rol = st.sidebar.selectbox("Seleccionar Vista", ["🏢 Operador de CEDI (Admin)", "🛒 Comprador B2B (Cliente)"])
+rol = st.sidebar.selectbox("Seleccionar Vista", ["🏢 Operador de CEDI (Admin)", "🛒 Comprador B2B (Cliente)", "🚀 Smart Order Rescue"])
 
 lista_cedis = get_lista_cedis()
 default_idx = lista_cedis.index("3804") if "3804" in lista_cedis else 0
@@ -330,6 +331,9 @@ default_idx = lista_cedis.index("3804") if "3804" in lista_cedis else 0
 if rol == "🏢 Operador de CEDI (Admin)":
     st.sidebar.markdown("<h2 style='color: #e41e26;'>📍 Red de Distribución</h2>", unsafe_allow_html=True)
     cedi_seleccionado = st.sidebar.selectbox("Seleccionar CEDI Real", lista_cedis, index=default_idx)
+elif rol == "🚀 Smart Order Rescue":
+    st.sidebar.markdown("<h2 style='color: #e41e26;'>📍 Red de Distribución</h2>", unsafe_allow_html=True)
+    cedi_seleccionado = st.sidebar.selectbox("Seleccionar CEDI de Análisis", lista_cedis, index=default_idx)
 else:
     # En vista comprador, el CEDI se define en la pantalla principal
     if 'b2b_cedi' not in st.session_state or not st.session_state.b2b_cedi:
@@ -347,6 +351,10 @@ if 'ultimo_cedi' in st.session_state and st.session_state.ultimo_cedi != cedi_se
 st.session_state.ultimo_cedi = cedi_seleccionado
 
 df_top_prods = get_top_productos_cedi(cedi_seleccionado)
+
+if rol == "🚀 Smart Order Rescue":
+    render_smart_order_rescue(cedi_seleccionado)
+    st.stop()
 
 st.sidebar.markdown("<h2 style='color: #e41e26;'>🏢 Gemelo Digital (Stock)</h2>", unsafe_allow_html=True)
 with st.sidebar.expander("📦 Niveles de Inventario", expanded=True):
