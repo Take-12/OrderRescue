@@ -801,16 +801,64 @@ with tab1:
                 """, unsafe_allow_html=True)
                 
                 # Panel de acciones ("Tome cartas en el asunto")
-                st.subheader("⚡ Acciones del Operador")
-                st.write("Selecciona una medida correctiva inmediata para resolver el desabasto:")
+                # 1. Calcular riesgo/probabilidad
+                prob_desabasto = 0.85 if alert["tipo_caso"] == "excede" else 0.35
                 
-                action_col1, action_col2 = st.columns(2)
-                with action_col1:
-                    if st.button("🚚 Reubicar Stock de Urgencia (CEDI Cercano)", use_container_width=True):
-                        st.success(f"¡Acción Ejecutada! Se coordinó el traslado urgente para {alert['cliente']}.")
-                with action_col2:
-                    if st.button("📦 Despachar Sustituto Pre-autorizado", use_container_width=True):
-                        st.info(f"Sustitución procesada. Se enviará el producto de reemplazo con descuento proporcional.")
+                # 2. Calcular opciones de MPC
+                MAP_CLIENTE_PERFIL_REAL = {
+                    "Restaurante Centro": {"tasa": 50.0},
+                    "Abarrotes La Esquina": {"tasa": 28.57},
+                    "Gimnasio FitZone": {"tasa": 12.50},
+                    "Supermercado Smart": {"tasa": 0.0},
+                    "Taquería El Pastor": {"tasa": 16.67}
+                }
+                perfil = MAP_CLIENTE_PERFIL_REAL.get(alert["cliente"], {"tasa": 20.0})
+                tasa_historica = perfil["tasa"]
+                penalizacion_lealtad = (tasa_historica / 100.0) * 80.0
+                
+                opciones_mpc = [
+                    {
+                        "nombre": "🚚 Reubicación de stock urgente (Mover de CEDI cercano)",
+                        "costo_fijo": 35.0,
+                        "costo_falla": 0.05 * 120.0,
+                        "desc": "Se traslada inventario desde un CEDI vecino para entregar el producto original."
+                    },
+                    {
+                        "nombre": "📦 Notificar al cliente y despachar sustituto pre-autorizado con descuento",
+                        "costo_fijo": 8.0,
+                        "costo_falla": (prob_desabasto * 0.1 * 120.0) + penalizacion_lealtad,
+                        "desc": "Se activa la pre-autorización para sustituto con descuento de lealtad."
+                    },
+                    {
+                        "nombre": "⚠️ No hacer nada (Permitir Sustitución sin plan previo)",
+                        "costo_fijo": 0.0,
+                        "costo_falla": (prob_desabasto * 120.0) + penalizacion_lealtad,
+                        "desc": "Riesgo alto de insatisfacción o queja del cliente al no entregar el producto original."
+                    }
+                ]
+                
+                # Calcular costo esperado total
+                for opt in opciones_mpc:
+                    opt["costo_total"] = opt["costo_fijo"] + opt["costo_falla"]
+                    
+                # Ordenar por prioridad (menor costo = mayor prioridad)
+                opciones_mpc = sorted(opciones_mpc, key=lambda x: x["costo_total"])
+                
+                st.subheader("⚡ Acciones Operativas sugeridas por MPC")
+                st.write("Medidas ordenadas de **Mayor a Menor Prioridad** según el costo esperado del MPC:")
+                
+                for rank, opt in enumerate(opciones_mpc, 1):
+                    rank_icon = "🥇" if rank == 1 else ("🥈" if rank == 2 else "🥉")
+                    st.markdown(f"""
+                    <div style='background-color: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid #d81b60; color: #333;'>
+                        <span style='font-size: 14px; font-weight: bold;'>{rank_icon} Prioridad {rank}: {opt['nombre']}</span><br>
+                        <span style='font-size: 12px; color: #666;'>{opt['desc']}</span><br>
+                        <span style='font-size: 11px; font-weight: bold; color: #e41e26;'>Costo Esperado MPC: ${opt['costo_total']:.2f} USD</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button(f"Ejecutar Opción Prioridad {rank}", key=f"run_opt_{rank}_{alert['cliente']}", use_container_width=True):
+                        st.success(f"✅ ¡Opción '{opt['nombre']}' ejecutada con éxito para {alert['cliente']}!")
                         
                 # Gráficas de prioridad para CEDI y Asignación de Prioridades
                 st.markdown("---")
@@ -820,34 +868,45 @@ with tab1:
                 
                 # Generar datos de prioridad
                 prioridades = []
-                lista_nombres_alertas = []
                 for a in alertas:
                     dif = max(0, a["cantidad"] - a["stock_actual"])
                     prio_score = (dif / a["stock_actual"]) * 100 if a["stock_actual"] > 0 else 100.0
                     if a["tipo_caso"] == "cercano":
                         prio_score = 15.0 # Prioridad baja para alertas de cercanía
-                    prio_label = f"{a['cliente']} ({a['producto']})"
                     prioridades.append({
-                        "Alerta": prio_label,
+                        "Alerta": f"{a['cliente']} ({a['producto']})",
                         "Severidad (%)": round(prio_score, 1)
                     })
-                    lista_nombres_alertas.append(prio_label)
+                
+                # Ordenar prioridades de mayor a menor severidad
+                prioridades = sorted(prioridades, key=lambda x: x["Severidad (%)"], reverse=True)
+                lista_nombres_alertas_ordenados = [p["Alerta"] for p in prioridades]
                 
                 with col_priority:
-                    st.markdown("🎯 **Asignar Prioridad de Abasto:**")
+                    st.markdown("🎯 **Prioridades de Abasto Detectadas:**")
+                    st.write("Las alertas están ordenadas automáticamente de mayor a menor gravedad según el déficit:")
+                    
                     alerta_seleccionada_prio = st.selectbox(
                         "Seleccionar CEDI / Pedido Crítico:",
-                        lista_nombres_alertas if lista_nombres_alertas else ["No hay alertas"]
+                        lista_nombres_alertas_ordenados if lista_nombres_alertas_ordenados else ["No hay alertas"]
                     )
                     
-                    prio_nivel = st.select_slider(
-                        "Nivel de Prioridad Asignado:",
-                        options=["Baja 🟢", "Media 🟡", "Alta 🟠", "Crítica/Urgente 🔴"],
-                        value="Alta 🟠"
-                    )
+                    # Buscar el score de severidad
+                    score_prio = 0.0
+                    for p in prioridades:
+                        if p["Alerta"] == alerta_seleccionada_prio:
+                            score_prio = p["Severidad (%)"]
+                            break
+                    
+                    st.markdown(f"""
+                    <div style='background-color: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #ddd; color: #333;'>
+                        📢 <b>Prioridad del Sistema:</b> { '🔴 Crítica/Urgente' if score_prio >= 50.0 else ('🟠 Alta' if score_prio >= 30.0 else '🟡 Media') }<br>
+                        📈 <b>Severidad de Desabasto:</b> {score_prio}%
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                     if st.button("🚀 Mandar a Pedir Stock", use_container_width=True):
-                        st.success(f"✅ Se ha enviado una orden de reabastecimiento Prioritaria ({prio_nivel}) para el pedido de: **{alerta_seleccionada_prio}**.")
+                        st.success(f"✅ Se ha enviado una orden de reabastecimiento urgente para: **{alerta_seleccionada_prio}**.")
                         
                 with col_chart:
                     st.markdown("📈 **Gráfica de Severidad:**")
