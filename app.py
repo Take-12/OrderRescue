@@ -189,6 +189,47 @@ if 'pedido_procesado' not in st.session_state:
     st.session_state.sustituto_sugerido = ""
     st.session_state.simular_llamada_clic = False
 
+# Inicialización de la bandeja de entrada del operador y descuentos
+if 'b2b_alertas_operador' not in st.session_state:
+    st.session_state.b2b_alertas_operador = [
+        {
+            "cliente": "Taquería El Pastor",
+            "producto": "Coca - Cola",
+            "cantidad": 35,
+            "stock_actual": 15,
+            "tipo_caso": "excede",
+            "fecha": "00:15:30",
+            "leido": False
+        },
+        {
+            "cliente": "Restaurante Centro",
+            "producto": "Powerade Moras",
+            "cantidad": 19,
+            "stock_actual": 20,
+            "tipo_caso": "cercano",
+            "fecha": "00:20:45",
+            "leido": False
+        },
+        {
+            "cliente": "Abarrotes La Esquina",
+            "producto": "Sprite Lima Limón",
+            "cantidad": 25,
+            "stock_actual": 17,
+            "tipo_caso": "excede",
+            "fecha": "00:22:10",
+            "leido": True
+        }
+    ]
+
+if 'descuentos_manuales' not in st.session_state:
+    st.session_state.descuentos_manuales = {
+        "Restaurante Centro": 8.5,
+        "Abarrotes La Esquina": 7.0,
+        "Gimnasio FitZone": 10.0,
+        "Supermercado Smart": 10.0,
+        "Taquería El Pastor": 9.0
+    }
+
 # Inicialización de estados de comprador B2B
 if 'b2b_logged_in' not in st.session_state:
     st.session_state.b2b_logged_in = False
@@ -590,6 +631,17 @@ if rol == "🛒 Comprador B2B (Cliente)":
                         "opcion_1": opcion_1,
                         "opcion_2": opcion_2
                     })
+                    # Agregar aviso a la bandeja de entrada del operador
+                    if 'b2b_alertas_operador' in st.session_state:
+                        st.session_state.b2b_alertas_operador.insert(0, {
+                            "cliente": st.session_state.b2b_cliente_nombre,
+                            "producto": b2b_producto,
+                            "cantidad": b2b_cantidad,
+                            "stock_actual": stock_actual,
+                            "tipo_caso": tipo_caso,
+                            "fecha": time.strftime("%H:%M:%S"),
+                            "leido": False
+                        })
                     st.toast(f"✅ {b2b_producto} (con reposición) agregado al carrito.")
                     st.rerun()
 
@@ -640,137 +692,189 @@ if rol == "🛒 Comprador B2B (Cliente)":
 
 # ----------------- TABS PRINCIPALES -----------------
 tab1, tab2 = st.tabs([
-    "🎯 Simulador Live Gemelo Digital + MPC", 
+    "📥 Bandeja de Entrada del Operador", 
     "📊 Dashboard CEDI y Analíticas"
 ])
 
-# ----------------- TAB 1: SIMULADOR LIVE -----------------
+# ----------------- TAB 1: BANDEJA DE ENTRADA DEL OPERADOR -----------------
 with tab1:
-    st.header(f"Simulador de Pedidos: CEDI {cedi_seleccionado}")
-    st.write("Simula la llegada de un pedido y observa cómo el MPC calcula la mejor respuesta operativa y cómo se activa la llamada de ElevenLabs:")
-    
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.subheader("Entrada de Pedido")
-        cliente = st.selectbox("Cliente B2B", ["Restaurante Centro", "Abarrotes La Esquina", "Gimnasio FitZone", "Supermercado Smart", "Taquería El Pastor", "Tienda de Conveniencia Express"])
-        producto = st.selectbox("Producto Solicitado", list(inventario.keys()))
-        
-        avg_demand_prod = int(df_top_prods[df_top_prods['producto'] == producto]['avg_qty'].iloc[0])
-        cantidad = st.number_input("Cantidad Solicitada (cajas)", min_value=1, max_value=500, value=avg_demand_prod)
-        
-        st.markdown("**Parámetros de Costo del MPC:**")
-        penalizacion_falla = st.number_input("Penalización por Falla ($ USD)", min_value=50.0, max_value=300.0, value=120.0)
-        costo_descuento = st.number_input("Costo Descuento al Cliente ($ USD)", min_value=2.0, max_value=30.0, value=8.0)
-        
-        procesar = st.button("🚀 Procesar Pedido", use_container_width=True)
-        
-        if procesar:
-            if model is None:
-                st.error("Error: El modelo de Machine Learning no ha sido entrenado. Corre 'entrenar_modelo.py' primero.")
-            else:
-                # 1. Capa ML: Predicción
-                input_data = pd.DataFrame([{
-                    'nombre_solicitado': producto,
-                    'quantity': cantidad
-                }])
-                prob_desabasto = model.predict_proba(input_data)[0][1]
-                
-                stock_actual = inventario[producto]
-                if stock_actual >= cantidad:
-                    prob_real = max(0.01, prob_desabasto * 0.1)
-                else:
-                    deficit = cantidad - stock_actual
-                    prob_real = min(0.99, prob_desabasto * 1.5 + (deficit / cantidad))
-                
-                # 2. Capa MPC: Comparación de Escenarios
-                otros_prods = [p for p in inventario.keys() if p != producto]
-                sustituto_sugerido = otros_prods[0] if otros_prods else "Coca-Cola Sin Azúcar"
-                
-                opciones = {
-                    "A) Autorizar Reposición Preventiva (Con Descuento)": {
-                        "costo_fijo": costo_descuento,
-                        "prob_falla": 0.02,
-                        "desc": f"El cliente pre-aprueba el plan de reposición automática con sustitutos (ej. '{sustituto_sugerido}') y recibe 10% de descuento."
-                    },
-                    "B) Entregar Solo Disponible (Sin Reposición / Cancelar Faltante)": {
-                        "costo_fijo": 0.0,
-                        "prob_falla": prob_real,
-                        "desc": "Se despacha únicamente el stock existente del producto original y el resto se cancela de la factura. Sin descuentos."
-                    }
-                }
-                
-                nombres = []
-                costos = []
-                descripciones = []
-                
-                for nombre, opt in opciones.items():
-                    costo_esperado = opt["costo_fijo"] + (opt["prob_falla"] * penalizacion_falla)
-                    nombres.append(nombre)
-                    costos.append(costo_esperado)
-                    descripciones.append(opt["desc"])
-                    
-                df_mpc = pd.DataFrame({
-                    "Acción Propuesta": nombres,
-                    "Costo Esperado ($ USD)": costos,
-                    "Descripción": descripciones
-                })
-                
-                df_mpc = df_mpc.sort_values(by="Costo Esperado ($ USD)")
-                mejor_accion = df_mpc.iloc[0]["Acción Propuesta"]
-                menor_costo = df_mpc.iloc[0]["Costo Esperado ($ USD)"]
-                
-                st.session_state.pedido_procesado = True
-                st.session_state.producto = producto
-                st.session_state.cantidad = cantidad
-                st.session_state.prob_real = prob_real
-                st.session_state.mejor_accion = mejor_accion
-                st.session_state.menor_costo = menor_costo
-                st.session_state.df_mpc = df_mpc
-                st.session_state.sustituto_sugerido = sustituto_sugerido
-                st.session_state.simular_llamada_clic = False
+    st.header(f"📥 Bandeja de Entrada del Operador - CEDI {cedi_seleccionado}")
+    st.write("Gestiona las alertas operativas de stock en tiempo real y revisa los perfiles de lealtad de tus clientes:")
 
-    with col2:
-        if st.session_state.pedido_procesado:
-            st.subheader("Resultados de la Simulación")
+    # Dividir en dos columnas para una vista premium
+    col_menu, col_detail = st.columns([1, 1.8])
+
+    with col_menu:
+        # Selección de carpeta/bandeja
+        bandeja = st.radio(
+            "📁 Seleccionar Bandeja", 
+            ["🚨 Alertas de Stock Crítico", "👥 Historial de Clientes & Lealtad"],
+            horizontal=True
+        )
+        
+        st.markdown("---")
+        
+        if bandeja == "🚨 Alertas de Stock Crítico":
+            st.subheader("Notificaciones de Riesgo")
+            alertas = st.session_state.get('b2b_alertas_operador', [])
             
-            prob_real = st.session_state.prob_real
-            producto = st.session_state.producto
-            cantidad = st.session_state.cantidad
-            mejor_accion = st.session_state.mejor_accion
-            menor_costo = st.session_state.menor_costo
-            df_mpc = st.session_state.df_mpc
-            sustituto_sugerido = st.session_state.sustituto_sugerido
-            stock_actual = inventario[producto]
-            
-            if prob_real > 0.6:
-                st.error(f"⚠️ RIESGO CRÍTICO DE SUSTITUCIÓN: {prob_real*100:.1f}%")
-            elif prob_real > 0.3:
-                st.warning(f"🔸 RIESGO MODERADO DE SUSTITUCIÓN: {prob_real*100:.1f}%")
+            if not alertas:
+                st.success("✅ No hay alertas de stock pendientes en la red.")
+                selected_alert_idx = None
             else:
-                st.success(f"✅ RIESGO BAJO DE SUSTITUCIÓN: {prob_real*100:.1f}%")
+                # Mostrar botones tipo lista de correos
+                selected_alert_idx = 0
+                for idx, alert in enumerate(alertas):
+                    severity = "🔴 CRÍTICO" if alert["tipo_caso"] == "excede" else "🟠 AVISO"
+                    # Resaltar si no está leído
+                    unread_prefix = "✉️ " if not alert["leido"] else "📖 "
+                    btn_label = f"{unread_prefix} [{alert['fecha']}] {alert['cliente']} - {severity}"
+                    
+                    if st.button(btn_label, key=f"alert_btn_{idx}", use_container_width=True):
+                        # Marcar como leída
+                        st.session_state.b2b_alertas_operador[idx]["leido"] = True
+                        st.session_state.selected_alert_index = idx
+                        st.rerun()
+                
+                selected_alert_idx = st.session_state.get('selected_alert_index', 0)
+                if selected_alert_idx >= len(alertas):
+                    selected_alert_idx = 0
+                    
+        else: # Historial de Clientes
+            st.subheader("Clientes B2B Activos")
+            clientes_lista = ["Restaurante Centro", "Abarrotes La Esquina", "Gimnasio FitZone", "Supermercado Smart", "Taquería El Pastor"]
             
+            for c_name in clientes_lista:
+                if st.button(f"👤 {c_name}", key=f"client_btn_{c_name}", use_container_width=True):
+                    st.session_state.selected_client_name = c_name
+                    st.rerun()
+            
+            selected_client = st.session_state.get('selected_client_name', "Restaurante Centro")
+
+    with col_detail:
+        if bandeja == "🚨 Alertas de Stock Crítico":
+            st.subheader("🔎 Detalle de Alerta Operativa")
+            
+            alertas = st.session_state.get('b2b_alertas_operador', [])
+            if alertas and selected_alert_idx is not None:
+                alert = alertas[selected_alert_idx]
+                
+                # Diseño premium de la alerta seleccionada
+                bg_color = "#ffe5ec" if alert["tipo_caso"] == "excede" else "#fff8e1"
+                border_color = "#d81b60" if alert["tipo_caso"] == "excede" else "#ffb300"
+                text_color = "#5f1530" if alert["tipo_caso"] == "excede" else "#5d4037"
+                
+                st.markdown(f"""
+                <div style='background-color: {bg_color}; padding: 18px; border-radius: 10px; border-left: 6px solid {border_color}; margin-bottom: 20px; color: {text_color};'>
+                    <h3 style='margin: 0 0 10px 0; color: {border_color}; font-weight: bold;'>
+                        { '🚨 Stock Excedido (Faltante Confirmado)' if alert['tipo_caso'] == 'excede' else '⚠️ Stock Cercano (Riesgo del 10%)' }
+                    </h3>
+                    <b>Cliente:</b> {alert['cliente']}<br>
+                    <b>Producto Solicitado:</b> {alert['producto']}<br>
+                    <b>Cantidad en Pedido:</b> {alert['cantidad']} cajas<br>
+                    <b>Inventario Disponible:</b> {alert['stock_actual']} cajas<br>
+                    <b>Déficit/Diferencia:</b> {max(0, alert['cantidad'] - alert['stock_actual'])} cajas<br>
+                    <b>Hora de Registro:</b> {alert['fecha']}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Panel de acciones ("Tome cartas en el asunto")
+                st.subheader("⚡ Acciones del Operador")
+                st.write("Selecciona una medida correctiva inmediata para resolver el desabasto:")
+                
+                action_col1, action_col2 = st.columns(2)
+                with action_col1:
+                    if st.button("🚚 Reubicar Stock de Urgencia (CEDI Cercano)", use_container_width=True):
+                        st.success(f"¡Acción Ejecutada! Se coordinó el traslado urgente para {alert['cliente']}.")
+                with action_col2:
+                    if st.button("📦 Despachar Sustituto Pre-autorizado", use_container_width=True):
+                        st.info(f"Sustitución procesada. Se enviará el producto de reemplazo con descuento proporcional.")
+                        
+                # Gráficas de prioridad para CEDI
+                st.markdown("---")
+                st.subheader("📊 Gráfica de Severidad / Prioridad de Alertas")
+                st.write("Prioridad de atención en base al porcentaje de déficit del pedido respecto al inventario actual:")
+                
+                # Generar datos de prioridad
+                prioridades = []
+                for a in alertas:
+                    dif = max(0, a["cantidad"] - a["stock_actual"])
+                    prio_score = (dif / a["stock_actual"]) * 100 if a["stock_actual"] > 0 else 100.0
+                    if a["tipo_caso"] == "cercano":
+                        prio_score = 15.0 # Prioridad baja para alertas de cercanía
+                    prioridades.append({
+                        "Alerta": f"{a['cliente']} ({a['producto']})",
+                        "Severidad (%)": round(prio_score, 1)
+                    })
+                
+                df_prio = pd.DataFrame(prioridades)
+                if not df_prio.empty:
+                    st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
+                
+            else:
+                st.info("Selecciona una notificación de la lista para ver su detalle y tomar cartas en el asunto.")
+                
+        else: # Historial de Clientes & Lealtad
+            st.subheader(f"👤 Perfil de Lealtad: {selected_client}")
+            
+            # Datos de perfil reales mapeados
+            MAP_CLIENTE_PERFIL_REAL = {
+                "Restaurante Centro": {"pedidos": 6, "sustituciones": 3, "tasa": 50.0, "calif": "Riesgo de Abandono ⚠️", "color": "red", "prom_cajas": 25},
+                "Abarrotes La Esquina": {"pedidos": 7, "sustituciones": 2, "tasa": 28.57, "calif": "Regular 👤", "color": "orange", "prom_cajas": 15},
+                "Gimnasio FitZone": {"pedidos": 8, "sustituciones": 1, "tasa": 12.50, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 12},
+                "Supermercado Smart": {"pedidos": 10, "sustituciones": 0, "tasa": 0.0, "calif": "Cliente Excelente 🏆", "color": "blue", "prom_cajas": 45},
+                "Taquería El Pastor": {"pedidos": 6, "sustituciones": 1, "tasa": 16.67, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 18}
+            }
+            
+            profile = MAP_CLIENTE_PERFIL_REAL.get(selected_client, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0, "calif": "Regular", "color": "grey", "prom_cajas": 10})
+            
+            # Mostrar KPIs del cliente
+            kpi_c1, kpi_c2, kpi_c3 = st.columns(3)
+            with kpi_c1:
+                st.metric("Total Pedidos", profile["pedidos"])
+            with kpi_c2:
+                st.metric("Sustituciones Recibidas", profile["sustituciones"])
+            with kpi_c3:
+                st.metric("Tasa de Sustitución", f"{profile['tasa']:.1f}%")
+                
             st.markdown(f"""
-            **Detalles de Almacén:**
-            - Stock disponible en CEDI: **{stock_actual} cajas**
-            - Cantidad Solicitada: **{cantidad} cajas**
-            - Déficit estimado: **{max(0, cantidad - stock_actual)} cajas**
-            """)
-            
-            st.subheader("Optimización del MPC (Model Predictive Control)")
-            st.bar_chart(data=df_mpc.set_index("Acción Propuesta")["Costo Esperado ($ USD)"], color="#e41e26")
-            
-            st.markdown(f"""
-            <div style='background-color: #ffebe6; padding: 15px; border-radius: 8px; border-left: 6px solid #e41e26; margin-bottom: 20px; color: #222222;'>
-                <h4 style='margin: 0; color: #e41e26; font-weight: bold;'>💡 Recomendación de Acción Óptima:</h4>
-                <p style='margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #c62828;'>{mejor_accion}</p>
-                <p style='margin: 5px 0 0 0; color: #222222;'>Costo Esperado Minimizado: <b>${menor_costo:.2f} USD</b></p>
+            <div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 5px solid {profile["color"]}; margin-bottom: 20px; color: #333;'>
+                <b>Clasificación de Cliente:</b> <span style='color: {profile["color"]}; font-weight: bold;'>{profile["calif"]}</span><br>
+                <b>Tamaño Promedio de Pedido:</b> {profile["prom_cajas"]} cajas/pedido<br>
+                <b>Estado de Lealtad:</b> Historial analizado y verificado mediante base de datos CEDI.
             </div>
             """, unsafe_allow_html=True)
             
-            # La simulación interactiva de la llamada se realiza únicamente en el Portal del Comprador B2B.
-        else:
-            st.info("👈 Selecciona los datos del pedido y haz clic en 'Procesar Pedido' para simular.")
+            # Descuento sugerido en base a pedidos, lealtad y tamaño de orden (Capped a 10%)
+            tasa_exito = 100.0 - profile["tasa"]
+            descuento_sugerido_calculado = min(10.0, (profile["pedidos"] * 0.5) + (profile["prom_cajas"] * 0.08) + (tasa_exito * 0.02))
+            descuento_sugerido_calculado = round(descuento_sugerido_calculado, 1)
+            
+            st.subheader("🎟️ Descuento de Lealtad Otorgado")
+            st.write("El sistema calcula automáticamente un descuento recomendado de lealtad en base a sus compras:")
+            
+            st.info(f"💡 **Descuento Recomendado por Algoritmo:** **{descuento_sugerido_calculado}%** (Máximo 10%)")
+            
+            # Obtener descuento manual actual de sesión o usar el sugerido por defecto
+            desc_actual = st.session_state.descuentos_manuales.get(selected_client, descuento_sugerido_calculado)
+            
+            # Input para que el operador modifique/altere el descuento en tiempo real
+            nuevo_desc = st.slider(
+                f"Modificar Descuento para {selected_client} (%)", 
+                min_value=0.0, 
+                max_value=10.0, 
+                value=float(desc_actual), 
+                step=0.5,
+                key=f"slider_desc_{selected_client}"
+            )
+            
+            # Guardar en estado de sesión el descuento modificado
+            st.session_state.descuentos_manuales[selected_client] = nuevo_desc
+            
+            if nuevo_desc != descuento_sugerido_calculado:
+                st.warning(f"⚠️ El descuento ha sido alterado manualmente por el operador a: **{nuevo_desc}%**")
+            else:
+                st.success(f"✅ Se está aplicando el descuento sugerido de lealtad: **{nuevo_desc}%**")
 
 # ----------------- TAB 2: DASHBOARD CEDI Y ANALITICAS -----------------
 with tab2:
