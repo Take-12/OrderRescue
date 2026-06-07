@@ -35,9 +35,9 @@ descargar_base_de_datos_si_falta()
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
 from smart_order_rescue import render_smart_order_rescue
 
-# Función para interactuar con la API de Gemini 1.5 Flash
+# Función para interactuar con la API de Gemini 2.5 Flash
 def llamar_api_gemini(mensaje_usuario, api_key):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     
     contents = []
