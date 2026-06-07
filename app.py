@@ -259,7 +259,7 @@ if 'b2b_pedido_procesado' not in st.session_state:
     st.session_state.b2b_simular_llamada_clic = False
     st.session_state.b2b_llamada_confirmada = False
     st.session_state.b2b_proteccion_activada = False
-    st.session_state.b2b_regla_5_porciento = False
+    st.session_state.b2b_regla_10_porciento = False
     st.session_state.b2b_segundo_producto_agregado = False
     st.session_state.b2b_reposicion_opcion_1 = ""
     st.session_state.b2b_reposicion_opcion_2 = ""
@@ -505,7 +505,7 @@ if rol == "🛒 Comprador B2B (Cliente)":
             if stock_actual > 0:
                 if b2b_cantidad > stock_actual:
                     tipo_caso = "excede"
-                elif b2b_cantidad >= 0.95 * stock_actual:
+                elif b2b_cantidad >= 0.90 * stock_actual:
                     tipo_caso = "cercano"
             else:
                 tipo_caso = "excede"
@@ -531,7 +531,7 @@ if rol == "🛒 Comprador B2B (Cliente)":
                 if tipo_caso == "cercano":
                     st.markdown(f"""
                     <div style='background-color: #fff8e1; padding: 16px; border-radius: 8px; border-left: 6px solid #ffb300; margin-bottom: 15px; color: #5d4037; font-size: 14px; line-height: 1.5;'>
-                        <h4 style='margin: 0 0 8px 0; color: #b7791f; font-weight: bold;'>⚠️ Aviso de Compromiso de Inventario (Proximidad del 5%)</h4>
+                        <h4 style='margin: 0 0 8px 0; color: #b7791f; font-weight: bold;'>⚠️ Aviso de Compromiso de Inventario (Proximidad del 10%)</h4>
                         Estimado cliente, le ofrecemos una sincera disculpa. Su pedido de <b>{b2b_cantidad} cajas</b> se encuentra muy cerca del límite del inventario disponible de <b>{b2b_producto}</b> en este CEDI (<b>{stock_actual} cajas</b>).
                         <br><br>
                         Existe la posibilidad de que alguna unidad sufra mermas menores durante el proceso de surtido en almacén. Para salvaguardar su entrega, le solicitamos autorizar la reposición por su sustituto preferido en caso de que ocurra algún incidente.
