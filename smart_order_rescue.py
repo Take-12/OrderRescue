@@ -249,19 +249,9 @@ def render_smart_order_rescue(cedi_actual):
         # Fila de filtros a nivel de pestaña
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
-            filtro_cliente = st.selectbox("Filtrar por Cliente", ["Todos"] + list(MAP_CLIENTE_ID_REAL.keys()), index=0, key="f_cliente")
+            filtro_cedi = st.selectbox("Filtrar por CEDI", ["Todos"] + list(cedis_db), index=0, key="f_cedi")
         with col_f2:
-            # Filtrar CEDIS por el cliente seleccionado
-            conn = get_db_connection()
-            if filtro_cliente == "Todos":
-                cedis_opciones = ["Todos"] + list(cedis_db)
-            else:
-                c_id = MAP_CLIENTE_ID_REAL[filtro_cliente]
-                c = conn.cursor()
-                res_cedis = [row[0] for row in c.execute("SELECT DISTINCT cedis FROM orders WHERE customer_id = ? AND cedis IS NOT NULL", (c_id,)).fetchall()]
-                cedis_opciones = ["Todos"] + sorted(list(res_cedis))
-            conn.close()
-            filtro_cedi = st.selectbox("Filtrar por CEDI", cedis_opciones, index=0, key="f_cedi")
+            filtro_cliente = st.selectbox("Filtrar por Cliente", ["Todos"] + list(MAP_CLIENTE_ID_REAL.keys()), index=0, key="f_cliente")
         with col_f3:
             filtro_riesgo = st.selectbox("Filtrar por Nivel de Riesgo", ["Todos", "Alto (🔴)", "Medio (🟡)", "Bajo (🟢)"], index=0, key="f_riesgo")
             
