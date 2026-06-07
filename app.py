@@ -223,11 +223,11 @@ if 'b2b_alertas_operador' not in st.session_state:
 
 if 'descuentos_manuales' not in st.session_state:
     st.session_state.descuentos_manuales = {
-        "Restaurante Centro": 8.5,
-        "Abarrotes La Esquina": 7.0,
-        "Gimnasio FitZone": 10.0,
-        "Supermercado Smart": 10.0,
-        "Taquería El Pastor": 9.0
+        "Restaurante Centro": 4.5,
+        "Abarrotes La Esquina": 3.5,
+        "Gimnasio FitZone": 5.0,
+        "Supermercado Smart": 5.0,
+        "Taquería El Pastor": 4.0
     }
 
 if 'descuentos_confirmados' not in st.session_state:
@@ -889,15 +889,15 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
             
-            # Descuento sugerido en base a pedidos, lealtad y tamaño de orden (Capped a 10%)
+            # Descuento sugerido en base a pedidos, lealtad y tamaño de orden (Capped a 5%)
             tasa_exito = 100.0 - profile["tasa"]
-            descuento_sugerido_calculado = min(10.0, (profile["pedidos"] * 0.5) + (profile["prom_cajas"] * 0.08) + (tasa_exito * 0.02))
+            descuento_sugerido_calculado = min(5.0, (profile["pedidos"] * 0.25) + (profile["prom_cajas"] * 0.04) + (tasa_exito * 0.01))
             descuento_sugerido_calculado = round(descuento_sugerido_calculado, 1)
             
             st.subheader("🎟️ Evaluación y Confirmación de Descuento")
             st.write("El sistema calcula un descuento de lealtad sugerido para mitigar el impacto del problema presentado:")
             
-            st.info(f"💡 **Descuento Recomendado:** **{descuento_sugerido_calculado}%** (Capped al 10%)")
+            st.info(f"💡 **Descuento Recomendado:** **{descuento_sugerido_calculado}%** (Capped al 5%)")
             
             # Obtener descuento manual actual de sesión o usar el sugerido por defecto
             desc_actual = st.session_state.descuentos_manuales.get(selected_client, descuento_sugerido_calculado)
@@ -906,7 +906,7 @@ with tab1:
             nuevo_desc = st.slider(
                 f"Ajustar Descuento de Compensación para {selected_client} (%)", 
                 min_value=0.0, 
-                max_value=10.0, 
+                max_value=5.0, 
                 value=float(desc_actual), 
                 step=0.5,
                 key=f"slider_desc_{selected_client}"
