@@ -35,6 +35,72 @@ descargar_base_de_datos_si_falta()
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
 from smart_order_rescue import render_smart_order_rescue
 
+# Función para interactuar con la API de Gemini 1.5 Flash
+def llamar_api_gemini(mensaje_usuario, api_key):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    
+    contents = []
+    # Cargar los últimos 8 mensajes para mantener memoria de la conversación
+    for msg in st.session_state.chatbot_historial[-8:]:
+        role_map = "user" if msg["role"] == "user" else "model"
+        contents.append({
+            "role": role_map,
+            "parts": [{"text": msg["content"]}]
+        })
+        
+    contents.append({
+        "role": "user",
+        "parts": [{"text": mensaje_usuario}]
+    })
+    
+    system_instruction = (
+        "Eres el Asistente Virtual Inteligente de Arca Continental para la plataforma 'Smart Order Rescue'. "
+        "Tu misión es guiar de manera formal, clara y empática a los usuarios (vendedores, ejecutivos comerciales y operadores de almacén) "
+        "sobre el funcionamiento de la aplicación.\n\n"
+        "INFORMACIÓN CLAVE DEL SIMULADOR QUE DEBES EXPLICAR:\n"
+        "1. Roles de usuario (en la barra lateral):\n"
+        "   - Operador de CEDI (Admin): Tiene la 'Bandeja de Entrada' (alertas de stock y priorización automatizada por gravedad de déficit), "
+        "     'Confirmación de Descuentos' (slider de compensación de lealtad de 0% a 5%) y el 'Dashboard CEDI y Analíticas' (KPIs históricos del CEDI).\n"
+        "   - Comprador B2B (Cliente): Portal de pedidos. Credenciales de prueba: centro/centro123 (Restaurante Centro), pastor/pastor123 (Taquería El Pastor), "
+        "     esquina/esquina123 (Abarrotes La Esquina), fitzone/fitzone123 (Gimnasio FitZone), smart/smart123 (Supermercado Smart). "
+        "     Si el pedido tiene 10% de proximidad o excede el stock, salta una advertencia y solicita pre-autorizar alternativas a cambio de un descuento.\n"
+        "2. Pestañas de Smart Order Rescue (para ejecutivos comerciales):\n"
+        "   - Predicción XGBoost: Usa Machine Learning (modelo_xgboost.pkl) para calcular la probabilidad de sustitución (Verde/Amarillo/Rojo).\n"
+        "   - Demanda Prophet: Pronostica a 7 días la demanda estacional por CEDI y producto usando regresión lineal.\n"
+        "   - Recomendador de Sustitutos: Sugiere el reemplazo de producto ideal y da una plantilla de mensaje comercial formal.\n"
+        "   - Simulador CEDI (Digital Twin): Proyecta impactos de mermas/demanda y sugiere traslados de stock inter-CEDI.\n"
+        "   - Base de Datos SQL: Navegador visual de registros históricos de tablas (pedidos, sustituciones, clientes, etc.).\n\n"
+        "Responde siempre en español, de forma breve, estructurada y profesional."
+    )
+    
+    payload = {
+        "contents": contents,
+        "systemInstruction": {
+            "parts": [{"text": system_instruction}]
+        },
+        "generationConfig": {
+            "temperature": 0.3,
+            "maxOutputTokens": 350
+        }
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            try:
+                return data['candidates'][0]['content']['parts'][0]['text']
+            except (KeyError, IndexError):
+                return "Error: Respuesta de Gemini en formato no esperado."
+        else:
+            err_msg = response.text
+            if "API_KEY_INVALID" in err_msg:
+                return "❌ La API Key de Gemini ingresada es inválida. Por favor, verifícala."
+            return f"❌ Error de Gemini API (Código {response.status_code}): {err_msg[:150]}"
+    except Exception as e:
+        return f"❌ Error de conexión: {e}"
+
 
 
 
@@ -317,6 +383,12 @@ if 'b2b_pedido_procesado' not in st.session_state:
     st.session_state.b2b_decision_tomada = ""
     st.session_state.b2b_tipo_caso = ""
 
+# Inicialización de estados de chatbot
+if 'chatbot_historial' not in st.session_state:
+    st.session_state.chatbot_historial = []
+if 'gemini_api_key_temp' not in st.session_state:
+    st.session_state.gemini_api_key_temp = ""
+
 # Título Principal
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>🥤 Smart Order Rescue</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 18px; color: #555;'>Gemelo Digital e Inteligencia Artificial para la Red de Distribución de Arca Continental</p>", unsafe_allow_html=True)
@@ -386,6 +458,72 @@ with st.sidebar.expander("💰 Precios de Bebidas", expanded=False):
 
 st.sidebar.markdown("---")
 st.sidebar.info("El simulador carga dinámicamente los productos estrella basándose en la base de datos SQLite de este CEDI.")
+
+st.sidebar.markdown("---")
+with st.sidebar.expander("🤖 Asistente Virtual AC", expanded=False):
+    # Buscar API Key en secretos o variables de entorno
+    api_key_env = os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
+    
+    # Si no hay variable de entorno, pedirla en el expander
+    if not api_key_env:
+        api_key_input = st.text_input("Ingresar Gemini API Key", type="password", value=st.session_state.gemini_api_key_temp, key="gemini_key_input_field")
+        st.session_state.gemini_api_key_temp = api_key_input
+        api_key = api_key_input
+    else:
+        api_key = api_key_env
+        
+    if not api_key:
+        st.info("💡 Proporciona una API Key de Gemini para activar el asistente interactivo.")
+    else:
+        st.write("¡Hola! Pregúntame sobre el portal, los roles o los modelos predictivos.")
+        
+        # Mostrar preguntas sugeridas si no hay historial
+        if len(st.session_state.chatbot_historial) == 0:
+            st.markdown("<p style='font-size:12px; font-weight:bold; margin-bottom:5px;'>Preguntas sugeridas:</p>", unsafe_allow_html=True)
+            preguntas_sug = [
+                "¿Cómo funciona el portal B2B?",
+                "¿Qué hace el Gemelo Digital?",
+                "¿Cómo predice XGBoost?",
+                "¿Qué es Smart Order Rescue?"
+            ]
+            
+            for q in preguntas_sug:
+                if st.button(q, key=f"sug_{q}", use_container_width=True):
+                    # Agregar mensaje de usuario
+                    st.session_state.chatbot_historial.append({"role": "user", "content": q})
+                    # Obtener respuesta
+                    respuesta = llamar_api_gemini(q, api_key)
+                    st.session_state.chatbot_historial.append({"role": "assistant", "content": respuesta})
+                    st.rerun()
+        
+        # Renderizar historial
+        for msg in st.session_state.chatbot_historial:
+            role_css = "chat-agent" if msg["role"] == "assistant" else "chat-user"
+            emoji = "🤖" if msg["role"] == "assistant" else "👤"
+            st.markdown(f"""
+            <div class="chat-bubble {role_css}">
+                <b>{emoji} { 'Asistente' if msg['role'] == 'assistant' else 'Usuario' }:</b><br>
+                {msg['content']}
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Entrada de chat
+        user_input = st.chat_input("Escribe tu pregunta aquí...", key="chatbot_user_input_field")
+        if user_input:
+            # Agregar mensaje de usuario
+            st.session_state.chatbot_historial.append({"role": "user", "content": user_input})
+            # Obtener respuesta de Gemini
+            respuesta = llamar_api_gemini(user_input, api_key)
+            # Agregar respuesta
+            st.session_state.chatbot_historial.append({"role": "assistant", "content": respuesta})
+            st.rerun()
+            
+        # Botón para limpiar chat
+        if len(st.session_state.chatbot_historial) > 0:
+            st.write("")
+            if st.button("🗑️ Limpiar Conversación", use_container_width=True, key="clear_chat_history_btn"):
+                st.session_state.chatbot_historial = []
+                st.rerun()
 
 # ----------------- PORTAL COMPRADOR B2B -----------------
 if rol == "🛒 Comprador B2B (Cliente)":
