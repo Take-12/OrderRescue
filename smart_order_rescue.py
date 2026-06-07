@@ -7,17 +7,21 @@ import os
 import difflib
 from datetime import datetime, timedelta
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(current_dir, "order_rescue.db")
+model_path = os.path.join(current_dir, "modelo_xgboost.pkl")
+
 # Mapeo de clientes amigables a IDs reales de alta frecuencia de la base de datos
 MAP_CLIENTE_ID_REAL = {
-    "Restaurante Centro": "4.89349e+18",
-    "Abarrotes La Esquina": "2.38317e+18",
-    "Gimnasio FitZone": "2.77689e+18",
-    "Supermercado Smart": "5.18675e+18",
-    "Taquería El Pastor": "7.94631e+18"
+    "Restaurante Centro": "4.89349E+18",
+    "Abarrotes La Esquina": "2.38317E+18",
+    "Gimnasio FitZone": "2.77689E+18",
+    "Supermercado Smart": "5.18675E+18",
+    "Taquería El Pastor": "7.94631E+18"
 }
 
 def get_db_connection():
-    return sqlite3.connect("order_rescue.db")
+    return sqlite3.connect(db_path)
 
 def verificar_e_inicializar_tablas():
     conn = get_db_connection()
@@ -443,7 +447,7 @@ def render_smart_order_rescue(cedi_actual):
                     
                     # Cargar modelo XGBoost
                     try:
-                        with open("modelo_xgboost.pkl", "rb") as f:
+                        with open(model_path, "rb") as f:
                             xgb_model = pickle.load(f)
                             
                         # Construir DataFrame de entrada
