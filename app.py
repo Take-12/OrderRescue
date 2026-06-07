@@ -10,30 +10,31 @@ from gtts import gTTS
 import streamlit.components.v1 as components
 
 # ─────────────────────────────────────────────────────────────
-# AUTO-DESCARGA DE ARCHIVOS PESADOS DESDE GOOGLE DRIVE
+# DESCARGA AUTOMÁTICA DE LA BASE DE DATOS (PARA STREAMLIT CLOUD)
 # ─────────────────────────────────────────────────────────────
-def descargar_si_no_existe(ruta_local, gdrive_file_id, nombre):
-    """Descarga un archivo de Google Drive si no existe localmente."""
-    if not os.path.exists(ruta_local):
+def descargar_base_de_datos_si_falta():
+    ruta_db = "order_rescue.db"
+    file_id = "1RlpSLZkkxkZljczo3GyCvvGxmS90-cCw" # ID del archivo de Google Drive del usuario
+    
+    if not os.path.exists(ruta_db):
         try:
             import gdown
-            url = f"https://drive.google.com/uc?id={gdrive_file_id}"
-            with st.spinner(f"⏬ Descargando {nombre} por primera vez... (puede tardar unos minutos)"):
-                gdown.download(url, ruta_local, quiet=False)
-            st.success(f"✅ {nombre} descargado correctamente.")
+            url = f"https://drive.google.com/uc?id={file_id}"
+            with st.spinner("⏬ Descargando base de datos desde Google Drive para el primer inicio... (esto puede tomar 1 o 2 minutos)"):
+                gdown.download(url, ruta_db, quiet=False)
+            st.success("✅ Base de datos descargada con éxito.")
         except Exception as e:
-            st.error(f"❌ No se pudo descargar {nombre}: {e}")
+            st.error(f"❌ Error al descargar la base de datos: {e}")
+            st.info("Asegúrate de que el enlace de Google Drive tenga permisos para 'Cualquier persona con el enlace'.")
             st.stop()
 
-# ID del archivo en Google Drive
-DB_GDRIVE_ID = "1RlpSLZkkxkZljczo3GyCvvGxmS90-cCw"
-DB_PATH = "order_rescue.db"
-
-descargar_si_no_existe(DB_PATH, DB_GDRIVE_ID, "Base de datos")
-
+# Ejecutar descarga si es necesario (ej. en Streamlit Cloud)
+descargar_base_de_datos_si_falta()
 
 # Importamos la función de optimización bayesiana
 from optimizacion_bayesiana import ejecutar_optimizacion_bayesiana
+
+
 
 
 # Configuración de página
