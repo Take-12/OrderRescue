@@ -194,6 +194,57 @@ if 'b2b_logged_in' not in st.session_state:
     st.session_state.b2b_logged_in = False
     st.session_state.b2b_user = ""
     st.session_state.b2b_cliente_nombre = ""
+
+if 'b2b_carrito' not in st.session_state:
+    st.session_state.b2b_carrito = []
+
+if 'b2b_compra_finalizada' not in st.session_state:
+    st.session_state.b2b_compra_finalizada = False
+
+if 'precios_productos' not in st.session_state:
+    st.session_state.precios_productos = {
+        "Coca - Cola": 1.50,
+        "Coca-Cola": 1.50,
+        "Coca - Cola Light Sin Cafeína, Botella Pet 600 ml, 24 Piezas": 1.80,
+        "Coca-Cola Light Sin Cafeína, Botella Pet 600 ml, 24 Piezas": 1.80,
+        "Coca - Cola Sin Azúcar, Botella Pet 1.50 L, 8 Piezas": 2.00,
+        "Coca-Cola Sin Azúcar, Botella Pet 1.50 L, 8 Piezas": 2.00,
+        "Coca - Cola, Botella Pet 2.00 L Retornable, 8 Piezas": 1.50,
+        "Coca-Cola, Botella Pet 2.00 L Retornable, 8 Piezas": 1.50,
+        "Coca - Cola Light, Botella Pet 1.50 L, 6 Piezas": 1.80,
+        "Coca-Cola Light, Botella Pet 1.50 L, 6 Piezas": 1.80,
+        "Coca - Cola, Botella Vidrio 355 ml, 24 Piezas": 1.40,
+        "Coca-Cola, Botella Vidrio 355 ml, 24 Piezas": 1.40,
+        "Coca - Cola, Botella Pet 400 ml, 12 Piezas": 1.30,
+        "Coca-Cola, Botella Pet 400 ml, 12 Piezas": 1.30,
+        "Coca - Cola, Botella Vidrio 237 ml, 12 Piezas": 1.10,
+        "Coca-Cola, Botella Vidrio 237 ml, 12 Piezas": 1.10,
+        "Coca - Cola Light, Botella Pet 1.00 L, 12 Piezas": 1.60,
+        "Coca-Cola Light, Botella Pet 1.00 L, 12 Piezas": 1.60,
+        "Topo Chico Agua Mineral": 1.20,
+        "Topo Chico Agua Mineral, Botella Vidrio 355 ml, 12 Piezas": 1.30,
+        "Coca - Cola Zero, Botella Pet 2.00 L, 8 Piezas": 1.70,
+        "Coca-Cola Zero, Botella Pet 2.00 L, 8 Piezas": 1.70,
+        "Fuze Tea Durazno": 1.30,
+        "Fuze Tea Limón, Botella Pet 600 ml, 6 Piezas": 1.40,
+        "Coca - Cola Life, Botella Vidrio 500 ml, 24 Piezas": 1.60,
+        "Coca-Cola Life, Botella Vidrio 500 ml, 24 Piezas": 1.60,
+        "Coca - Cola Light, Botella Vidrio 500 ml, 24 Piezas": 1.60,
+        "Coca-Cola Light, Botella Vidrio 500 ml, 24 Piezas": 1.60,
+        "Coca - Cola Life, Botella Pet 2.00 L, 8 Piezas": 1.80,
+        "Coca-Cola Life, Botella Pet 2.00 L, 8 Piezas": 1.80,
+        "Powerade Moras": 1.50,
+        "Powerade Uva, Botella Pet 1.00 L, 6 Piezas": 1.60,
+        "Sprite Lima Limón": 1.40,
+        "Sprite Sin Azúcar Lima Limón, Botella Pet 2.50 L, 8 Piezas": 1.90,
+        "Ciel Agua Purificada": 1.00,
+        "Ciel Exprim Gasificada Maracuya, Botella Pet 600 ml, 6 Piezas": 1.20,
+        "Yogurt Mix Frutilla con Galletas 175 Gr.": 1.10,
+        "Yogurt Toni Durazno 110 Gr.": 0.80,
+        "Leche Saborizada Toni Frutilla Poma 200 Ml.": 0.90,
+        "Leche Saborizada Toni Chocolate Poma 200 Ml.": 0.90,
+        "Telefonía Móvil Claro Tarjeta Paquete $5.15": 5.15
+    }
     
 if 'b2b_pedido_procesado' not in st.session_state:
     st.session_state.b2b_pedido_procesado = False
@@ -271,6 +322,21 @@ with st.sidebar.expander("📦 Niveles de Inventario", expanded=True):
             key=f"stock_{prod_name}"
         )
         inventario[prod_name] = stock_val
+
+with st.sidebar.expander("💰 Precios de Bebidas", expanded=False):
+    st.write("Configurar el costo de cada bebida en tiempo real:")
+    for _, row in df_top_prods.iterrows():
+        p_name = row['producto']
+        precio_actual = st.session_state.precios_productos.get(p_name, 1.50)
+        precio_nuevo = st.number_input(
+            f"{p_name} ($)",
+            min_value=0.10,
+            max_value=50.0,
+            value=float(precio_actual),
+            step=0.05,
+            key=f"precio_input_{p_name}"
+        )
+        st.session_state.precios_productos[p_name] = precio_nuevo
 
 st.sidebar.markdown("---")
 st.sidebar.info("El simulador carga dinámicamente los productos estrella basándose en la base de datos SQLite de este CEDI.")
@@ -374,24 +440,32 @@ if rol == "🛒 Comprador B2B (Cliente)":
         with col_logout:
             if st.button("🚪 Cerrar Sesión", use_container_width=True):
                 st.session_state.b2b_logged_in = False
-                st.session_state.b2b_user = ""
-                st.session_state.b2b_cliente_nombre = ""
-                st.session_state.b2b_pedido_procesado = False
-                st.session_state.b2b_llamada_confirmada = False
-                st.session_state.b2b_proteccion_activada = False
-                st.rerun()
-                
-        st.markdown("---")
-        
-        col_form, col_res = st.columns([1, 1.5])
+         
+        # Si se acaba de finalizar la compra, mostrar pantalla de éxito
+        if st.session_state.get('b2b_compra_finalizada', False):
+            st.markdown("""
+            <div style='background-color: #e8f5e9; padding: 25px; border-radius: 12px; border-left: 8px solid #2e7d32; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; color: #1b5e20;'>
+                <h3 style='margin: 0; color: #2e7d32;'>🎉 ¡Compra finalizada!</h3>
+                <p style='margin: 10px 0 0 0; font-size: 16px;'>Su pedido ha sido registrado con éxito. Se iniciará el despacho y la verificación del stock en el CEDI.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col_init, _ = st.columns([1, 3])
+            with col_init:
+                if st.button("🛒 Realizar Nueva Compra", use_container_width=True):
+                    st.session_state.b2b_compra_finalizada = False
+                    st.rerun()
+            st.stop()
+
+        col_form, col_res = st.columns([1, 1.3])
         
         with col_form:
-            st.subheader("📝 Formulario de Pedido")
+            st.subheader("📝 Agregar al Carrito")
             
             # Mostrar CEDI asignado automáticamente
             st.markdown(f"""
             <div style='background-color: #e8f5e9; padding: 12px; border-radius: 8px; border-left: 5px solid #2e7d32; margin-bottom: 12px;'>
-                <span style='font-size: 11px; color: #1b5e20; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;'>🏢 CEDI de Entrega Asignado (El más cercano)</span><br>
+                <span style='font-size: 11px; color: #1b5e20; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;'>🏢 CEDI de Entrega Asignado</span><br>
                 <span style='font-size: 18px; font-weight: bold; color: #0f3d0f;'>CEDI {st.session_state.b2b_cedi}</span>
             </div>
             """, unsafe_allow_html=True)
@@ -400,243 +474,155 @@ if rol == "🛒 Comprador B2B (Cliente)":
             df_prods_cedi = get_top_productos_cedi(st.session_state.b2b_cedi)
             lista_prods = df_prods_cedi['producto'].tolist()
             
-            b2b_producto = st.selectbox("🥤 Seleccionar Producto Solicitado", lista_prods)
+            # Formatear las opciones del selector con el precio unitario
+            def format_prod_option(prod):
+                precio = st.session_state.precios_productos.get(prod, 1.50)
+                return f"{prod} (${precio:.2f} / caja)"
+                
+            b2b_producto = st.selectbox(
+                "🥤 Seleccionar Producto", 
+                lista_prods, 
+                format_func=format_prod_option
+            )
             
+            # Mostrar precio unitario y calcular subtotal estimado
+            precio_unitario = st.session_state.precios_productos.get(b2b_producto, 1.50)
             avg_demand_prod = int(df_prods_cedi[df_prods_cedi['producto'] == b2b_producto]['avg_qty'].iloc[0])
+            
             b2b_cantidad = st.number_input("📦 Cantidad (cajas)", min_value=1, max_value=500, value=avg_demand_prod)
+            subtotal_estimado = b2b_cantidad * precio_unitario
             
-            enviar_pedido = st.button("🚀 Enviar Pedido", use_container_width=True)
+            st.markdown(f"""
+            <div style='background-color: #f1f3f5; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; color: #333;'>
+                💵 Costo unitario: <b>${precio_unitario:.2f} USD</b><br>
+                💰 Subtotal estimado: <b style='color: #e41e26; font-size: 16px;'>${subtotal_estimado:.2f} USD</b>
+            </div>
+            """, unsafe_allow_html=True)
             
-            if enviar_pedido:
-                if model is None:
-                    st.error("Error: El modelo de Machine Learning no ha sido entrenado. Corre 'entrenar_modelo.py' primero.")
-                else:
-                    # 1. Capa ML: Predicción de desabasto
-                    input_data = pd.DataFrame([{
-                        'nombre_solicitado': b2b_producto,
-                        'quantity': b2b_cantidad
-                    }])
-                    prob_desabasto = model.predict_proba(input_data)[0][1]
+            # Determinar stock actual y si el caso es crítico
+            stock_actual = inventario.get(b2b_producto, 0)
+            tipo_caso = "normal"
+            if stock_actual > 0:
+                if b2b_cantidad > stock_actual:
+                    tipo_caso = "excede"
+                elif b2b_cantidad >= 0.95 * stock_actual:
+                    tipo_caso = "cercano"
+            else:
+                tipo_caso = "excede"
+                
+            # Renderizar el botón o las opciones de advertencia/autorización basadas en tipo_caso
+            if tipo_caso == "normal":
+                if st.button("🛒 Agregar al Carrito", use_container_width=True):
+                    # Añadir al carrito
+                    st.session_state.b2b_carrito.append({
+                        "producto": b2b_producto,
+                        "cantidad": b2b_cantidad,
+                        "precio_unitario": precio_unitario,
+                        "subtotal": subtotal_estimado,
+                        "tipo_caso": tipo_caso,
+                        "reposicion_autorizada": False,
+                        "opcion_1": "-",
+                        "opcion_2": "-"
+                    })
+                    st.toast(f"✅ {b2b_producto} agregado al carrito.")
+                    st.rerun()
+            else:
+                # Caso crítico: cercano o excede
+                if tipo_caso == "cercano":
+                    st.markdown(f"""
+                    <div style='background-color: #fff3e0; padding: 12px; border-radius: 8px; border-left: 5px solid #ff9800; margin-bottom: 12px; color: #e65100; font-size: 13px; line-height: 1.4;'>
+                        <b>⚠️ Aviso de Compromiso de Stock (Proximidad del 5%)</b><br>
+                        Tu pedido de <b>{b2b_cantidad} cajas</b> consume casi todo el inventario disponible de {b2b_producto} (<b>{stock_actual} cajas</b>). Existe riesgo de merma física o falta menor.
+                    </div>
+                    """, unsafe_allow_html=True)
+                else: # excede
+                    st.markdown(f"""
+                    <div style='background-color: #ffebee; padding: 12px; border-radius: 8px; border-left: 5px solid #f44336; margin-bottom: 12px; color: #c62828; font-size: 13px; line-height: 1.4;'>
+                        <b>❌ Alerta de Disponibilidad Insuficiente</b><br>
+                        Tu pedido de <b>{b2b_cantidad} cajas</b> supera el stock disponible de {b2b_producto} (<b>{stock_actual} cajas</b>) en este CEDI.
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("<p style='font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #333;'>📋 Plan de Reposición Preventiva</p>", unsafe_allow_html=True)
+                lista_alternativas = [p for p in inventario.keys() if p != b2b_producto]
+                if not lista_alternativas:
+                    lista_alternativas = ["Coca-Cola Sin Azúcar", "Coca-Cola Light"]
                     
-                    # Stock actual en Gemelo Digital
-                    stock_actual = inventario.get(b2b_producto, 0)
-                    if stock_actual >= b2b_cantidad:
-                        prob_real = max(0.01, prob_desabasto * 0.1)
-                    else:
-                        deficit = b2b_cantidad - stock_actual
-                        prob_real = min(0.99, prob_desabasto * 1.5 + (deficit / b2b_cantidad))
+                opcion_1 = st.selectbox("1ª Opción de Reposición (Sustituto Favorito)", lista_alternativas)
+                
+                lista_alternativas_2 = [p for p in lista_alternativas if p != opcion_1]
+                if not lista_alternativas_2:
+                    lista_alternativas_2 = ["Coca-Cola Light", "Sprite Lima Limón"]
                     
-                    # 2. Capa MPC: Decisiones Operativas Automatizadas (Costos Fijos)
-                    otros_prods = [p for p in inventario.keys() if p != b2b_producto]
-                    b2b_sustituto_sugerido = otros_prods[0] if otros_prods else "Coca-Cola Sin Azúcar"
-                    
-                    opciones = {
-                        "A) No hacer nada (Permitir Sustitución en CEDI)": {
-                            "costo_fijo": 0.0,
-                            "prob_falla": prob_real,
-                            "desc": "El pedido sigue su curso normal. Existe un riesgo alto de queja o que no te llegue lo solicitado."
-                        },
-                        "B) Reubicación de stock urgente (Mover de CEDI cercano)": {
-                            "costo_fijo": 35.0,
-                            "prob_falla": 0.05,
-                            "desc": "Se activó la reubicación de inventario urgente desde un CEDI vecino. Tu entrega está garantizada sin cargos extra."
-                        },
-                        "C) Notificar al cliente y autorizar sustituto con descuento": {
-                            "costo_fijo": 8.0,
-                            "prob_falla": prob_real * 0.1,
-                            "desc": f"Se sugiere cambio por '{b2b_sustituto_sugerido}' con descuento."
-                        }
-                    }
-                    
-                    # Calcular decisión sin protección de lealtad (para saber si influyó en el cambio)
-                    nombres_sin = []
-                    costos_sin = []
-                    for nombre, opt in opciones.items():
-                        costo_sin = opt["costo_fijo"] + (opt["prob_falla"] * 120.0)
-                        nombres_sin.append(nombre)
-                        costos_sin.append(costo_sin)
-                    df_sin = pd.DataFrame({"Acción": nombres_sin, "Costo": costos_sin}).sort_values(by="Costo")
-                    mejor_accion_sin = df_sin.iloc[0]["Acción"]
-                    
-                    # Calcular decisión con protección de lealtad
-                    perfil = MAP_CLIENTE_PERFIL.get(st.session_state.b2b_cliente_nombre, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0})
-                    tasa_historica = perfil.get("tasa", 0.0)
-                    penalizacion_lealtad = (tasa_historica / 100.0) * 80.0  # hasta $40 USD extra por insatisfacción
-                    
-                    nombres = []
-                    costos = []
-                    descripciones = []
-                    for nombre, opt in opciones.items():
-                        costo_esperado = opt["costo_fijo"] + (opt["prob_falla"] * 120.0)
-                        # Sumar penalización por lealtad a las opciones que NO entregan el producto original (A y C)
-                        if "A)" in nombre or "C)" in nombre:
-                            costo_esperado += penalizacion_lealtad
-                        nombres.append(nombre)
-                        costos.append(costo_esperado)
-                        descripciones.append(opt["desc"])
-                        
-                    df_mpc = pd.DataFrame({
-                        "Acción Propuesta": nombres,
-                        "Costo Esperado ($ USD)": costos,
-                        "Descripción": descripciones
-                    }).sort_values(by="Costo Esperado ($ USD)")
-                    
-                    mejor_accion = df_mpc.iloc[0]["Acción Propuesta"]
-                    menor_costo = df_mpc.iloc[0]["Costo Esperado ($ USD)"]
-                    
-                    # Si la decisión cambió debido a la penalización de lealtad hacia la Reubicación (B)
-                    proteccion_activada = False
-                    if mejor_accion != mejor_accion_sin and "B)" in mejor_accion:
-                        proteccion_activada = True
-                    
-                    # Determinar tipo de caso de stockout/proximidad
-                    tipo_caso = "normal"
-                    if stock_actual > 0:
-                        if b2b_cantidad > stock_actual:
-                            tipo_caso = "excede"
-                        elif b2b_cantidad >= 0.95 * stock_actual:
-                            # 5% de proximidad
-                            tipo_caso = "cercano"
-                    else:
-                        tipo_caso = "excede" # No hay stock
-
-                    st.session_state.b2b_pedido_procesado = True
-                    st.session_state.b2b_producto = b2b_producto
-                    st.session_state.b2b_cantidad = b2b_cantidad
-                    st.session_state.b2b_prob_real = prob_real
-                    st.session_state.b2b_mejor_accion = mejor_accion
-                    st.session_state.b2b_menor_costo = menor_costo
-                    st.session_state.b2b_df_mpc = df_mpc
-                    st.session_state.b2b_sustituto_sugerido = b2b_sustituto_sugerido
-                    st.session_state.b2b_simular_llamada_clic = False
-                    st.session_state.b2b_llamada_confirmada = False
-                    st.session_state.b2b_proteccion_activada = proteccion_activada
-                    st.session_state.b2b_tipo_caso = tipo_caso
-                    st.session_state.b2b_decision_tomada = ""
-                    st.session_state.b2b_reposicion_opcion_1 = ""
-                    st.session_state.b2b_reposicion_opcion_2 = ""
-                    st.session_state.b2b_regla_5_porciento = (tipo_caso == "cercano")
-                    st.session_state.b2b_segundo_producto_agregado = False
+                opcion_2 = st.selectbox("2ª Opción de Reposición (Segunda Alternativa)", lista_alternativas_2)
+                
+                st.write("")
+                
+                # Botón largo de autorización
+                autorizar_texto = (
+                    "✍️ Autorizar que en caso de accidente o así se le reponga por el producto favorito "
+                    "puesto y que se le dará un descuento proporcional a lo perdido, en caso de que llegue "
+                    "con éxito pues no habrá descuento"
+                )
+                if st.button(autorizar_texto, use_container_width=True):
+                    # Agregar al carrito con autorización
+                    st.session_state.b2b_carrito.append({
+                        "producto": b2b_producto,
+                        "cantidad": b2b_cantidad,
+                        "precio_unitario": precio_unitario,
+                        "subtotal": subtotal_estimado,
+                        "tipo_caso": tipo_caso,
+                        "reposicion_autorizada": True,
+                        "opcion_1": opcion_1,
+                        "opcion_2": opcion_2
+                    })
+                    st.toast(f"✅ {b2b_producto} (con reposición) agregado al carrito.")
                     st.rerun()
 
         with col_res:
-            if st.session_state.b2b_pedido_procesado:
-                st.subheader("🤖 Estatus del Pedido (Gestión Proactiva de Stock)")
-                
-                producto = st.session_state.b2b_producto
-                cantidad = st.session_state.b2b_cantidad
-                sustituto_sugerido = st.session_state.b2b_sustituto_sugerido
-                prob_real = st.session_state.b2b_prob_real
-                stock_actual = inventario.get(producto, 0)
-                mejor_accion = st.session_state.b2b_mejor_accion
-                tipo_caso = st.session_state.get('b2b_tipo_caso', 'normal')
-                
-                if st.session_state.b2b_decision_tomada != "":
-                    decision = st.session_state.b2b_decision_tomada
-                    
-                    if decision == "continuar":
-                        st.info("📝 PEDIDO REGISTRADO (SIN CAMBIOS PRE-APROBADOS)")
-                        if tipo_caso == "cercano":
-                            st.markdown(f"""
-                            Tu pedido de **{cantidad} cajas de {producto}** ha sido enviado.
-                            
-                            *Aviso del CEDI:* Hemos notificado al personal de carga sobre la cercanía del límite del stock. 
-                            Las cajas se manipularán con extremo cuidado para evitar mermas por roturas.
-                            """)
-                        elif tipo_caso == "excede":
-                            st.markdown(f"""
-                            Tu pedido de **{cantidad} cajas de {producto}** ha sido enviado.
-                            
-                            *Aviso del CEDI:* Debido a que solicitaste más del stock disponible (sólo contamos con **{stock_actual} cajas**), las **{cantidad - stock_actual} cajas faltantes** serán reubicadas de urgencia o canceladas de forma automática al despachar.
-                            """)
-                        else:
-                            st.markdown(f"Tu pedido de **{cantidad} cajas de {producto}** ha sido registrado correctamente.")
-                            
-                    elif decision == "hacer_cambio":
-                        st.success("✅ PEDIDO CONFIRMADO CON PLAN DE REPOSICIÓN PRE-AUTORIZADO")
-                        st.markdown(f"""
-                        **Resumen de la Orden:**
-                        - Producto Solicitado: **{producto}** ({cantidad} cajas)
-                        - Estatus de Reposición: **Pre-autorizada por el cliente en caso de merma o faltante**
-                        - **1ª Opción de Reposición (Sustituto Favorito):** {st.session_state.b2b_reposicion_opcion_1}
-                        - **2ª Opción de Reposición (Segunda Alternativa):** {st.session_state.b2b_reposicion_opcion_2}
-                        
-                        🏆 **Beneficio Aplicado:** ¡Se ha acreditado un **🎟️ Cupón de 10% de Descuento para tu Siguiente Compra**!
-                        """)
-                    
-                    if st.button("🔄 Hacer Nuevo Pedido", use_container_width=True):
-                        st.session_state.b2b_pedido_procesado = False
-                        st.session_state.b2b_decision_tomada = ""
-                        st.session_state.b2b_reposicion_opcion_1 = ""
-                        st.session_state.b2b_reposicion_opcion_2 = ""
-                        st.session_state.b2b_regla_5_porciento = False
-                        st.session_state.b2b_segundo_producto_agregado = False
-                        st.session_state.b2b_llamada_confirmada = False
-                        st.rerun()
-                else:
-                    if tipo_caso == "normal":
-                        st.success("🚚 PEDIDO REGISTRADO Y EN RUTA")
-                        st.markdown(f"""
-                        Tu pedido de **{cantidad} cajas de {producto}** ha sido ingresado al sistema.
-                        
-                        *Nota del Gemelo Digital:* Se estima un riesgo de desabasto muy bajo ({prob_real*100:.1f}%), por lo que tu pedido sigue su ruta convencional.
-                        """)
-                        if st.button("🔄 Hacer Nuevo Pedido", use_container_width=True):
-                            st.session_state.b2b_pedido_procesado = False
-                            st.rerun()
-                    else:
-                        # Casos Críticos: Cercano o Excede
-                        if tipo_caso == "cercano":
-                            st.markdown(f"""
-                            <div style='background-color: #fff3e0; padding: 15px; border-radius: 8px; border-left: 6px solid #ff9800; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #e65100;'>
-                                <h4 style='margin: 0; font-size: 14px; font-weight: bold;'>⚠️ Aviso de Compromiso de Stock (Proximidad del 5%)</h4>
-                                <p style='margin: 5px 0 0 0; font-size: 13px; line-height: 1.4;'>
-                                    Tu pedido de <b>{cantidad} cajas</b> de <b>{producto}</b> consume casi todo el inventario disponible (<b>{stock_actual} cajas</b>).
-                                    Existe riesgo de que alguna caja se rompa durante el surtido o haya discrepancias físicas en el almacén.
-                                </p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        elif tipo_caso == "excede":
-                            st.markdown(f"""
-                            <div style='background-color: #ffebee; padding: 15px; border-radius: 8px; border-left: 6px solid #f44336; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); color: #c62828;'>
-                                <h4 style='margin: 0; font-size: 14px; font-weight: bold;'>❌ Alerta de Disponibilidad Insuficiente (Stock Superado)</h4>
-                                <p style='margin: 5px 0 0 0; font-size: 13px; line-height: 1.4;'>
-                                    Tu pedido de <b>{cantidad} cajas</b> supera el stock disponible de <b>{producto}</b> (<b>{stock_actual} cajas</b>) en este CEDI.
-                                    Es seguro que parte de tu pedido requerirá una reposición de producto.
-                                </p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        st.markdown("### 📋 Plan de Reposición Preventiva")
-                        st.write("Selecciona los dos productos que más te gustaría recibir en caso de requerir reposición:")
-                        
-                        lista_alternativas = [p for p in inventario.keys() if p != producto]
-                        if not lista_alternativas:
-                            lista_alternativas = ["Coca-Cola Sin Azúcar", "Coca-Cola Light"]
-                            
-                        opcion_1 = st.selectbox("1ª Opción de Reposición (Sustituto Favorito)", lista_alternativas)
-                        
-                        lista_alternativas_2 = [p for p in lista_alternativas if p != opcion_1]
-                        if not lista_alternativas_2:
-                            lista_alternativas_2 = ["Coca-Cola Light", "Sprite Lima Limón"]
-                            
-                        opcion_2 = st.selectbox("2ª Opción de Reposición (Segunda Alternativa)", lista_alternativas_2)
-                        
-                        st.write("")
-                        col_b1, col_b2 = st.columns(2)
-                        with col_b1:
-                            if st.button("📝 Continuar sin cambios", use_container_width=True):
-                                st.session_state.b2b_decision_tomada = "continuar"
-                                st.rerun()
-                        with col_b2:
-                            if st.button("🔄 Hacer un cambio (Autorizar Reposición + 10% Descuento)", use_container_width=True):
-                                st.session_state.b2b_decision_tomada = "hacer_cambio"
-                                st.session_state.b2b_reposicion_opcion_1 = opcion_1
-                                st.session_state.b2b_reposicion_opcion_2 = opcion_2
-                                st.rerun()
+            st.subheader("🛒 Carrito de Compras")
+            
+            if not st.session_state.b2b_carrito:
+                st.info("El carrito está vacío. Agrega productos usando el formulario de la izquierda.")
             else:
-                st.info("👈 Ingresa los datos de tu pedido y haz clic en 'Enviar Pedido'.")
-    st.stop()
+                # Mostrar tabla de productos agregados
+                items = []
+                for idx, item in enumerate(st.session_state.b2b_carrito):
+                    rep_str = "Normal (Seguro)"
+                    if item["reposicion_autorizada"]:
+                        rep_str = f"Sustituir por: {item['opcion_1']}"
+                    items.append({
+                        "Producto": item["producto"],
+                        "Cant.": item["cantidad"],
+                        "P. Unit.": f"${item['precio_unitario']:.2f}",
+                        "Subtotal": f"${item['subtotal']:.2f}",
+                        "Estatus Stock": rep_str
+                    })
+                
+                df_carrito = pd.DataFrame(items)
+                st.dataframe(df_carrito, use_container_width=True, hide_index=True)
+                
+                # Calcular total
+                grand_total = sum(item["subtotal"] for item in st.session_state.b2b_carrito)
+                
+                st.markdown(f"""
+                <div style='text-align: right; font-size: 20px; font-weight: bold; margin-top: 10px; margin-bottom: 20px; color: #333;'>
+                    Total a Pagar: <span style='color: #e41e26;'>${grand_total:.2f} USD</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col_pagar, col_vaciar = st.columns([2, 1])
+                with col_pagar:
+                    if st.button("💳 Pagar Pedido", type="primary", use_container_width=True):
+                        # Limpiar carrito y marcar como finalizado
+                        st.session_state.b2b_carrito = []
+                        st.session_state.b2b_compra_finalizada = True
+                        st.rerun()
+                with col_vaciar:
+                    if st.button("🗑️ Vaciar Carrito", use_container_width=True):
+                        st.session_state.b2b_carrito = []
+                        st.rerun()
+        st.stop()
 
 # ----------------- TABS PRINCIPALES -----------------
 tab1, tab2 = st.tabs([
