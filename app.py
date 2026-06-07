@@ -230,6 +230,15 @@ if 'descuentos_manuales' not in st.session_state:
         "Taquería El Pastor": 9.0
     }
 
+if 'descuentos_confirmados' not in st.session_state:
+    st.session_state.descuentos_confirmados = {
+        "Restaurante Centro": False,
+        "Abarrotes La Esquina": False,
+        "Gimnasio FitZone": False,
+        "Supermercado Smart": False,
+        "Taquería El Pastor": False
+    }
+
 # Inicialización de estados de comprador B2B
 if 'b2b_logged_in' not in st.session_state:
     st.session_state.b2b_logged_in = False
@@ -740,12 +749,25 @@ with tab1:
                 if selected_alert_idx >= len(alertas):
                     selected_alert_idx = 0
                     
-        else: # Historial de Clientes
-            st.subheader("Clientes B2B Activos")
+        else: # Historial de Clientes & Lealtad
+            st.subheader("Confirmaciones de Descuento")
+            st.write("Solicitudes pendientes basadas en incidencias de stock:")
             clientes_lista = ["Restaurante Centro", "Abarrotes La Esquina", "Gimnasio FitZone", "Supermercado Smart", "Taquería El Pastor"]
             
+            MAP_CLIENTE_RESUMEN = {
+                "Restaurante Centro": "50.0% mermas (Crítico)",
+                "Abarrotes La Esquina": "28.6% mermas (Regular)",
+                "Gimnasio FitZone": "12.5% mermas (Estable)",
+                "Supermercado Smart": "0.0% mermas (Excelente)",
+                "Taquería El Pastor": "16.7% mermas (Estable)"
+            }
+            
             for c_name in clientes_lista:
-                if st.button(f"👤 {c_name}", key=f"client_btn_{c_name}", use_container_width=True):
+                confirmed_status = "✅ [CONFIRMADO]" if st.session_state.get('descuentos_confirmados', {}).get(c_name, False) else "📩 [PENDIENTE]"
+                resumen = MAP_CLIENTE_RESUMEN.get(c_name, "")
+                btn_label = f"{confirmed_status} {c_name} ({resumen})"
+                
+                if st.button(btn_label, key=f"client_btn_{c_name}", use_container_width=True):
                     st.session_state.selected_client_name = c_name
                     st.rerun()
             
@@ -790,43 +812,65 @@ with tab1:
                     if st.button("📦 Despachar Sustituto Pre-autorizado", use_container_width=True):
                         st.info(f"Sustitución procesada. Se enviará el producto de reemplazo con descuento proporcional.")
                         
-                # Gráficas de prioridad para CEDI
+                # Gráficas de prioridad para CEDI y Asignación de Prioridades
                 st.markdown("---")
-                st.subheader("📊 Gráfica de Severidad / Prioridad de Alertas")
-                st.write("Prioridad de atención en base al porcentaje de déficit del pedido respecto al inventario actual:")
+                st.subheader("📊 Panel de Priorización de Abasto CEDI")
+                
+                col_priority, col_chart = st.columns([1.1, 1.3])
                 
                 # Generar datos de prioridad
                 prioridades = []
+                lista_nombres_alertas = []
                 for a in alertas:
                     dif = max(0, a["cantidad"] - a["stock_actual"])
                     prio_score = (dif / a["stock_actual"]) * 100 if a["stock_actual"] > 0 else 100.0
                     if a["tipo_caso"] == "cercano":
                         prio_score = 15.0 # Prioridad baja para alertas de cercanía
+                    prio_label = f"{a['cliente']} ({a['producto']})"
                     prioridades.append({
-                        "Alerta": f"{a['cliente']} ({a['producto']})",
+                        "Alerta": prio_label,
                         "Severidad (%)": round(prio_score, 1)
                     })
+                    lista_nombres_alertas.append(prio_label)
                 
-                df_prio = pd.DataFrame(prioridades)
-                if not df_prio.empty:
-                    st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
+                with col_priority:
+                    st.markdown("🎯 **Asignar Prioridad de Abasto:**")
+                    alerta_seleccionada_prio = st.selectbox(
+                        "Seleccionar CEDI / Pedido Crítico:",
+                        lista_nombres_alertas if lista_nombres_alertas else ["No hay alertas"]
+                    )
+                    
+                    prio_nivel = st.select_slider(
+                        "Nivel de Prioridad Asignado:",
+                        options=["Baja 🟢", "Media 🟡", "Alta 🟠", "Crítica/Urgente 🔴"],
+                        value="Alta 🟠"
+                    )
+                    
+                    if st.button("🚀 Mandar a Pedir Stock", use_container_width=True):
+                        st.success(f"✅ Se ha enviado una orden de reabastecimiento Prioritaria ({prio_nivel}) para el pedido de: **{alerta_seleccionada_prio}**.")
+                        
+                with col_chart:
+                    st.markdown("📈 **Gráfica de Severidad:**")
+                    df_prio = pd.DataFrame(prioridades)
+                    if not df_prio.empty:
+                        st.bar_chart(data=df_prio.set_index("Alerta")["Severidad (%)"], color="#e41e26")
                 
             else:
                 st.info("Selecciona una notificación de la lista para ver su detalle y tomar cartas en el asunto.")
                 
         else: # Historial de Clientes & Lealtad
-            st.subheader(f"👤 Perfil de Lealtad: {selected_client}")
+            st.subheader(f"🔎 Confirmación de Descuento: {selected_client}")
             
             # Datos de perfil reales mapeados
             MAP_CLIENTE_PERFIL_REAL = {
-                "Restaurante Centro": {"pedidos": 6, "sustituciones": 3, "tasa": 50.0, "calif": "Riesgo de Abandono ⚠️", "color": "red", "prom_cajas": 25},
-                "Abarrotes La Esquina": {"pedidos": 7, "sustituciones": 2, "tasa": 28.57, "calif": "Regular 👤", "color": "orange", "prom_cajas": 15},
-                "Gimnasio FitZone": {"pedidos": 8, "sustituciones": 1, "tasa": 12.50, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 12},
-                "Supermercado Smart": {"pedidos": 10, "sustituciones": 0, "tasa": 0.0, "calif": "Cliente Excelente 🏆", "color": "blue", "prom_cajas": 45},
-                "Taquería El Pastor": {"pedidos": 6, "sustituciones": 1, "tasa": 16.67, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 18}
+                "Restaurante Centro": {"pedidos": 6, "sustituciones": 3, "tasa": 50.0, "calif": "Riesgo de Abandono ⚠️", "color": "red", "prom_cajas": 25, "problema": "Sufre alta tasa de mermas e incidencias críticas de stock en almacén. Requiere compensación prioritaria."},
+                "Abarrotes La Esquina": {"pedidos": 7, "sustituciones": 2, "tasa": 28.57, "calif": "Regular 👤", "color": "orange", "prom_cajas": 15, "problema": "Presenta desabastos esporádicos en pedidos de volumen medio."},
+                "Gimnasio FitZone": {"pedidos": 8, "sustituciones": 1, "tasa": 12.50, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 12, "problema": "Buen historial. Mantiene incidencias mínimas de stock."},
+                "Supermercado Smart": {"pedidos": 10, "sustituciones": 0, "tasa": 0.0, "calif": "Cliente Excelente 🏆", "color": "blue", "prom_cajas": 45, "problema": "Excelente historial de pedidos. Sin problemas reportados recientemente."},
+                "Taquería El Pastor": {"pedidos": 6, "sustituciones": 1, "tasa": 16.67, "calif": "Buen Cliente ⭐", "color": "green", "prom_cajas": 18, "problema": "Riesgo moderado de desabasto en pedidos pico de fin de semana."}
             }
             
-            profile = MAP_CLIENTE_PERFIL_REAL.get(selected_client, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0, "calif": "Regular", "color": "grey", "prom_cajas": 10})
+            profile = MAP_CLIENTE_PERFIL_REAL.get(selected_client, {"pedidos": 5, "sustituciones": 0, "tasa": 0.0, "calif": "Regular", "color": "grey", "prom_cajas": 10, "problema": "Sin incidentes graves."})
             
             # Mostrar KPIs del cliente
             kpi_c1, kpi_c2, kpi_c3 = st.columns(3)
@@ -841,7 +885,7 @@ with tab1:
             <div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 5px solid {profile["color"]}; margin-bottom: 20px; color: #333;'>
                 <b>Clasificación de Cliente:</b> <span style='color: {profile["color"]}; font-weight: bold;'>{profile["calif"]}</span><br>
                 <b>Tamaño Promedio de Pedido:</b> {profile["prom_cajas"]} cajas/pedido<br>
-                <b>Estado de Lealtad:</b> Historial analizado y verificado mediante base de datos CEDI.
+                <b>Incidencia Actual / Historial de Problema:</b> {profile["problema"]}
             </div>
             """, unsafe_allow_html=True)
             
@@ -850,17 +894,17 @@ with tab1:
             descuento_sugerido_calculado = min(10.0, (profile["pedidos"] * 0.5) + (profile["prom_cajas"] * 0.08) + (tasa_exito * 0.02))
             descuento_sugerido_calculado = round(descuento_sugerido_calculado, 1)
             
-            st.subheader("🎟️ Descuento de Lealtad Otorgado")
-            st.write("El sistema calcula automáticamente un descuento recomendado de lealtad en base a sus compras:")
+            st.subheader("🎟️ Evaluación y Confirmación de Descuento")
+            st.write("El sistema calcula un descuento de lealtad sugerido para mitigar el impacto del problema presentado:")
             
-            st.info(f"💡 **Descuento Recomendado por Algoritmo:** **{descuento_sugerido_calculado}%** (Máximo 10%)")
+            st.info(f"💡 **Descuento Recomendado:** **{descuento_sugerido_calculado}%** (Capped al 10%)")
             
             # Obtener descuento manual actual de sesión o usar el sugerido por defecto
             desc_actual = st.session_state.descuentos_manuales.get(selected_client, descuento_sugerido_calculado)
             
             # Input para que el operador modifique/altere el descuento en tiempo real
             nuevo_desc = st.slider(
-                f"Modificar Descuento para {selected_client} (%)", 
+                f"Ajustar Descuento de Compensación para {selected_client} (%)", 
                 min_value=0.0, 
                 max_value=10.0, 
                 value=float(desc_actual), 
@@ -871,10 +915,19 @@ with tab1:
             # Guardar en estado de sesión el descuento modificado
             st.session_state.descuentos_manuales[selected_client] = nuevo_desc
             
-            if nuevo_desc != descuento_sugerido_calculado:
-                st.warning(f"⚠️ El descuento ha sido alterado manualmente por el operador a: **{nuevo_desc}%**")
-            else:
-                st.success(f"✅ Se está aplicando el descuento sugerido de lealtad: **{nuevo_desc}%**")
+            # Botón para confirmar y aplicar descuento
+            st.write("")
+            col_confirm, col_status = st.columns([1, 1])
+            with col_confirm:
+                if st.button("✅ Confirmar y Aplicar Descuento", use_container_width=True):
+                    st.session_state.descuentos_confirmados[selected_client] = True
+                    st.rerun()
+            
+            with col_status:
+                if st.session_state.descuentos_confirmados.get(selected_client, False):
+                    st.success(f"🎉 ¡Descuento de **{nuevo_desc}%** Aplicado con éxito!")
+                else:
+                    st.warning("⏳ Pendiente de confirmación por el operador.")
 
 # ----------------- TAB 2: DASHBOARD CEDI Y ANALITICAS -----------------
 with tab2:
