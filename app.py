@@ -348,11 +348,6 @@ st.session_state.ultimo_cedi = cedi_seleccionado
 
 df_top_prods = get_top_productos_cedi(cedi_seleccionado)
 
-# Inputs de APIs e Integraciones
-st.sidebar.markdown("<h2 style='color: #e41e26;'>🔑 APIs Configuración</h2>", unsafe_allow_html=True)
-elevenlabs_api_key = st.sidebar.text_input("ElevenLabs API Key (Para audio de texto)", type="password")
-elevenlabs_agent_id = st.sidebar.text_input("ElevenLabs Agent ID (Para hablar con micrófono)", value="")
-
 st.sidebar.markdown("<h2 style='color: #e41e26;'>🏢 Gemelo Digital (Stock)</h2>", unsafe_allow_html=True)
 with st.sidebar.expander("📦 Niveles de Inventario", expanded=True):
     st.write(f"Ajustar stock en tiempo real en el **CEDI {cedi_seleccionado}**:")
