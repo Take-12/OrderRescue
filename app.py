@@ -562,12 +562,22 @@ if rol == "🛒 Comprador B2B (Cliente)":
                 
                 st.write("")
                 
-                # Botón largo de autorización
-                autorizar_texto = (
-                    "✍️ Autorizar que en caso de accidente o así se le reponga por el producto favorito "
-                    "puesto y que se le dará un descuento proporcional a lo perdido, en caso de que llegue "
-                    "con éxito pues no habrá descuento"
-                )
+                # Botón largo de autorización dinámico según tipo de caso
+                if tipo_caso == "cercano":
+                    autorizar_texto = (
+                        "✍️ Autorizar que, en caso de pérdida, daño o incidente durante la entrega, "
+                        "se realice la reposición del producto solicitado. En dicho supuesto, se otorgará "
+                        "un descuento proporcional al valor de la pérdida ocasionada. Si la entrega se "
+                        "completa exitosamente y el producto llega en óptimas condiciones, no corresponderá "
+                        "la aplicación de ningún descuento"
+                    )
+                else:
+                    autorizar_texto = (
+                        "✍️ Autorizo el ajuste parcial de mi pedido debido a la falta de disponibilidad "
+                        "de algunos de los productos solicitados. Los productos faltantes podrán ser "
+                        "reemplazados por opciones similares y recibiré un descuento proporcional por "
+                        "las unidades que no se encuentran disponibles."
+                    )
                 if st.button(autorizar_texto, use_container_width=True):
                     # Agregar al carrito con autorización
                     st.session_state.b2b_carrito.append({
